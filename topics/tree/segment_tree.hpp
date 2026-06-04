@@ -71,33 +71,68 @@ namespace dsa::tree {
         }
     };
 
+    /**
+     * @brief Generic segment tree supporting point-update and range-query.
+     *
+     * @tparam WeightType  Scalar type stored at each position (e.g. int, float).
+     * @tparam OpsTemplate Monoid template (sumops, maxops, minops, …).
+     *                     Instantiated as OpsTemplate<WeightType> normally, or
+     *                     OpsTemplate<IndexNode> when IndexReturn=true.
+     * @tparam IndexReturn When true, query_with_index() returns the position of
+     *                     the winning element alongside its value.
+     *                     Requires OpsTemplate to be a comparative monoid
+     *                     (maxops or minops).
+     *
+     * Index convention: all public methods use 0-based indices [0, n-1].
+     *
+     * Complexity: O(n) build, O(log n) update and query.
+     *
+     * Usage examples:
+     * @code
+     *   // Sum tree
+     *   ModernIndexBasedSegmentTree<int> seg(arr);
+     *   seg.update(2, 10);
+     *   int s = seg.query(0, 4);
+     *
+     *   // Max tree that also returns the index of the maximum
+     *   ModernIndexBasedSegmentTree<int, monoid::maxops, true> seg(arr);
+     *   auto [idx, val] = seg.query_with_index(l, r);
+     * @endcode
+     */
     template<
-        typename WeightType = float, 
-        class Ops = monoid::sumops<WeightType>, 
+        typename WeightType = float,
+        template<typename> class OpsTemplate = monoid::sumops,
         bool IndexReturn = false
     >
     class ModernIndexBasedSegmentTree {
         public:
+            /**
+             * @brief Leaf descriptor used when IndexReturn=true.
+             *
+             * Carries the 0-based source index alongside its value so that
+             * combine() can propagate the winning position up the tree.
+             * lower_bound()/upper_bound() satisfy the identity requirements of
+             * maxops<IndexNode> and minops<IndexNode> respectively.
+             */
             struct IndexNode {
                 int index{-1};
                 WeightType value{};
+                static constexpr IndexNode lower_bound() { return {-1, std::numeric_limits<WeightType>::lowest()}; }
+                static constexpr IndexNode upper_bound() { return {-1, std::numeric_limits<WeightType>::max()}; }
                 bool operator<(const IndexNode& o) const { return value < o.value; }
                 bool operator>(const IndexNode& o) const { return value > o.value; }
             };
 
-        private:
-            using NodeType = std::conditional_t<
-                IndexReturn,
-                IndexNode,
-                WeightType
-            >;
-
-            int n_;  // length of array
-            std::vector<NodeType> tree_;   // [4 * n + 4] nodes
-
         protected:
-            static constexpr WeightType kNil = Ops::identity();
+            /** Actual node type stored in the tree array. */
+            using NodeType = std::conditional_t<IndexReturn, IndexNode, WeightType>;
+            /** Fully resolved monoid: operates on NodeType. */
+            using Ops = std::conditional_t<IndexReturn, OpsTemplate<IndexNode>, OpsTemplate<WeightType>>;
 
+            /** Identity element, used to initialise empty nodes. */
+            static constexpr NodeType kNil = Ops::identity();
+
+            /** Constructs a leaf NodeType from a 0-based index and scalar value. */
             static inline NodeType node(int index, WeightType value){
                 if constexpr (IndexReturn){
                     return {index, value};
@@ -107,26 +142,24 @@ namespace dsa::tree {
                 }
             }
 
-            // When IndexReturn=true (guaranteed comparative ops), picks the IndexNode
-            // whose value equals Ops::combine result. Safe: compare returns exactly a or b.
-            static inline NodeType combine(const NodeType& a, const NodeType& b){
-                if constexpr (IndexReturn){
-                    return (Ops::combine(a.value, b.value) == a.value) ? a : b;
-                }
-                else {
-                    return Ops::combine(a, b);
-                }
-            }
+        private:
+            int n_;
+            std::vector<NodeType> tree_;
 
+        protected:
+            /** Initialises all nodes to kNil (empty tree). */
             void build(int t, int l, int r){
                 if (l == r){
-                    tree_[t] = node(l-1, kNil);
+                    tree_[t] = kNil;
                     return;
                 }
-                build(2 * t, l, (l + r) / 2);
-                build(2 * t + 1, (l + r) / 2, r);
+                int m = (l + r) / 2;
+                build(2 * t, l, m);
+                build(2 * t + 1, m + 1, r);
+                tree_[t] = kNil;
             }
 
+            /** Builds the tree bottom-up from arr (1-indexed internally). */
             void build(int t, int l, int r, const std::vector<WeightType>& arr){
                 if (l == r){
                     tree_[t] = node(l-1, arr[l-1]);
@@ -135,19 +168,18 @@ namespace dsa::tree {
                 int m = (l + r) / 2;
                 build(2 * t, l, m, arr);
                 build(2 * t + 1, m + 1, r, arr);
-                tree_[t] = combine(tree_[2 * t], tree_[2 * t + 1]);
+                tree_[t] = Ops::combine(tree_[2 * t], tree_[2 * t + 1]);
             }
 
+            /** Returns Ops::combine over [a,b] while traversing node t covering [l,r]. */
             NodeType query(int t, int l, int r, int a, int b){
-                // case 1: a...l...r...b <=> [l, r] is inside of [a, b] => always return information of node t
                 if (a <= l && r <= b) return tree_[t];
-                // case 2: a...b l...r or l...r a...b <=> [l, r] is outside of [a, b]
-                if (l > r || b < l || r < a) return node(-1, Ops::identity());
-                // case 3: [l, r] is overlapped with [a, b] => we still needa seek information of some node in [l, r] to update [a, b]
+                if (l > r || b < l || r < a) return Ops::identity();
                 int m = (l + r) / 2;
-                return combine(query(2 * t, l, m, a, b), query(2 * t + 1, m + 1, r, a, b));
+                return Ops::combine(query(2 * t, l, m, a, b), query(2 * t + 1, m + 1, r, a, b));
             }
 
+            /** Sets position pos (1-based) to k and pulls up ancestor nodes. */
             void update(int t, int l, int r, int pos, WeightType k){
                 if (l == r){
                     tree_[t] = node(l-1, k);
@@ -160,43 +192,277 @@ namespace dsa::tree {
                 else {
                     update(2 * t + 1, m + 1, r, pos, k);
                 }
-                tree_[t] = combine(tree_[2 * t], tree_[2 * t + 1]);
+                tree_[t] = Ops::combine(tree_[2 * t], tree_[2 * t + 1]);
             }
 
         public:
             static_assert(
-                monoid::is_valid_monoid_ops<Ops, WeightType>::value,
-                "Ops must have ::identity() -> WeightType and ::combine(WeightType, WeightType) -> WeightType"
+                monoid::is_valid_monoid_ops<Ops, NodeType>::value,
+                "OpsTemplate<NodeType> must have ::identity() -> NodeType and ::combine(NodeType, NodeType) -> NodeType"
             );
 
             static_assert(
-                !IndexReturn || monoid::is_valid_monoid_comparative_ops<Ops, WeightType>::value,
-                "When IndexReturn=true, Ops must be a comparative monoid (maxops or minops)"
+                !IndexReturn || monoid::is_valid_monoid_selective_ops<Ops, NodeType>::value,
+                "When IndexReturn=true, OpsTemplate must be a comparative monoid (maxops or minops)"
             );
 
         public:
+            /** Constructs an empty tree of size n. */
             explicit ModernIndexBasedSegmentTree(int n) : n_(n), tree_(4 * n){
                 build(1, 1, n_);
             }
 
+            /** Constructs a tree initialised from arr (0-based). */
             explicit ModernIndexBasedSegmentTree(const std::vector<WeightType>& arr) : n_(arr.size()), tree_(4 * n_){
                 build(1, 1, n_, arr);
             }
 
-            // query [l, r]
+            /** Returns Ops::combine over arr[l..r] (0-based, inclusive). */
             WeightType query(int l, int r){
                 NodeType q = query(1, 1, n_, l+1, r+1);
                 if constexpr (IndexReturn) return q.value;
                 else return q;
             }
 
-            // arr[i] = k
+            /** Sets arr[i] = v (0-based) in O(log n). */
             void update(int i, WeightType v){
                 update(1, 1, n_, i+1, v);
             }
 
-            std::enable_if_t<IndexReturn, IndexNode>
-            query_with_index(int l, int r){
+            /**
+             * @brief Returns the IndexNode (index + value) of the winning element
+             *        over arr[l..r] (0-based, inclusive).
+             * Only available when IndexReturn=true.
+             */
+            IndexNode query_with_index(int l, int r){
+                static_assert(IndexReturn, "query_with_index is only available when IndexReturn=true");
+                return query(1, 1, n_, l+1, r+1);
+            }
+    };
+
+    /**
+     * @brief Generic segment tree with range-add lazy propagation.
+     *
+     * Supports:
+     *   - update(l, r, delta): add delta to all arr[i] for i in [l, r]. O(log n).
+     *   - update(i, v):        point-set arr[i] = v.                     O(log n).
+     *   - query(l, r):         aggregate over arr[l..r].                 O(log n).
+     *
+     * @tparam WeightType  Scalar type (must support +, *, numeric operations).
+     * @tparam OpsTemplate Monoid template. Only sum/max/min are compatible with
+     *                     range-add lazy (additive delta must shift aggregate
+     *                     linearly). Other ops (gcd, or, and) are rejected at
+     *                     compile time.
+     * @tparam IndexReturn When true, query_with_index() returns the 0-based
+     *                     position of the winning element. Requires maxops or minops.
+     *
+     * LazyType is always WeightType (additive delta) — no extra struct needed.
+     * compose: new_delta + old_delta.
+     * apply:   idempotent ops (max/min) → val + delta;
+     *          invertible ops (sum)      → val + delta * len.
+     *
+     * @code
+     *   ModernLazySegmentTree<int> seg(arr);           // sum + range-add
+     *   seg.update(1, 4, 3);                           // arr[1..4] += 3
+     *   seg.query(0, 5);
+     *
+     *   ModernLazySegmentTree<int, monoid::maxops, true> seg(arr);
+     *   seg.update(0, 3, -1);
+     *   auto [idx, val] = seg.query_with_index(0, 5);
+     * @endcode
+     */
+    template<
+        typename WeightType,
+        template<typename> class OpsTemplate = monoid::sumops,
+        bool IndexReturn = false
+    >
+    class ModernLazySegmentTree {
+        public:
+            /** Leaf descriptor used when IndexReturn=true (0-based index + value). */
+            struct IndexNode {
+                int index{-1};
+                WeightType value{};
+                static constexpr IndexNode lower_bound() { return {-1, std::numeric_limits<WeightType>::lowest()}; }
+                static constexpr IndexNode upper_bound() { return {-1, std::numeric_limits<WeightType>::max()}; }
+                bool operator<(const IndexNode& o) const { return value < o.value; }
+                bool operator>(const IndexNode& o) const { return value > o.value; }
+                IndexNode operator+(const WeightType& o) const { return {index, value + o}; }
+            };
+
+        protected:
+            /** Actual type stored per tree node: WeightType or IndexNode. */
+            using NodeType = std::conditional_t<IndexReturn, IndexNode, WeightType>;
+            /** Monoid operating on NodeType for combine/identity. */
+            using Ops      = std::conditional_t<IndexReturn, OpsTemplate<IndexNode>, OpsTemplate<WeightType>>;
+            /** Lazy delta is always a scalar WeightType (additive range-add). */
+            using LazyType = WeightType;
+
+            struct TreeNode {
+                NodeType val  = Ops::identity();
+                LazyType lazy = LazyType(0);
+            };
+
+            static constexpr NodeType kNil     = Ops::identity();
+            static constexpr LazyType kLazyNil = LazyType(0);
+
+            /** Constructs a leaf NodeType from 0-based index and scalar value. */
+            static inline NodeType node(int index, WeightType value) {
+                if constexpr (IndexReturn) return {index, value};
+                else return value;
+            }
+
+            /**
+             * @brief Applies additive delta to a WeightType aggregate.
+             *        max/min (idempotent): aggregate shifts by delta (len irrelevant).
+             *        sum     (invertible): aggregate grows by delta * len.
+             */
+            static WeightType apply_to_weight(WeightType val, LazyType delta, int len) {
+                if constexpr (monoid::is_valid_monoid_selective_ops<OpsTemplate<WeightType>, WeightType>::value)
+                    return val + delta;
+                else
+                    return val + delta * WeightType(len);
+            }
+
+            /**
+             * @brief Applies delta to a NodeType.
+             *        When IndexReturn=true, only .value is updated; .index is preserved.
+             */
+            static NodeType apply_lazy(const NodeType& nd, LazyType delta, int len) {
+                if constexpr (IndexReturn)
+                    return {nd.index, apply_to_weight(nd.value, delta, len)};
+                else
+                    return apply_to_weight(nd, delta, len);
+            }
+
+            /** Stacks new lazy on top of existing (additive composition). */
+            static LazyType compose_lazy(LazyType new_delta, LazyType old_delta) {
+                return new_delta + old_delta;
+            }
+
+        private:
+            int n_;
+            std::vector<TreeNode> tree_;
+
+        protected:
+            /** Builds tree bottom-up from arr (1-indexed internally). */
+            void build(int t, int l, int r, const std::vector<WeightType>& arr){
+                if (l == r){
+                    tree_[t] = {node(l-1, arr[l-1]), kLazyNil};
+                    return;
+                }
+                int m = (l+r)/2;
+                build(2*t,l,m,arr);
+                build(2*t+1,m+1,r,arr);
+                tree_[t].val = Ops::combine(tree_[2*t].val, tree_[2*t+1].val);
+            }
+
+            /** Pushes tree_[t].lazy down to children t*2 and t*2+1, then clears it. */
+            void push_down(int t, int l, int r){
+                if (l > r || tree_[t].lazy == kLazyNil) return;
+                LazyType lazy = tree_[t].lazy;
+                int m = (l + r) / 2;
+                // update real value for children
+                tree_[2*t].val = apply_lazy(tree_[2*t].val, lazy, m-l+1);
+                tree_[2*t+1].val = apply_lazy(tree_[2*t+1].val, lazy, r-m);
+                // transfer lazy debt to children
+                tree_[2*t].lazy = compose_lazy(tree_[2*t].lazy, lazy);
+                tree_[2*t+1].lazy = compose_lazy(tree_[2*t+1].lazy, lazy);
+
+                // reset lazy debt in current node
+                tree_[t].lazy = kLazyNil;
+            }
+
+            /** Returns aggregate over [a,b] while traversing node t covering [l,r]. */
+            NodeType query(int t, int l, int r, int a, int b){
+                // case 1: [l...r] [a...b] or [a...b] [l...r]
+                if (l > r || r < a || b < l) return kNil;
+                // case 2: [a...l...r...b]
+                if (a <= l && r <= b) return tree_[t].val;
+                // case 3: overlap, fallback to children
+                // transfer lazy debt into children
+                push_down(t, l, r);
+                // get the query
+                int m = (l+r)/2;
+                return Ops::combine(query(2*t,l,m,a,b), query(2*t+1,m+1,r,a,b));
+            }
+
+            /** Sets position pos (0-based) to k (point update, clears lazy path). */
+            void update(int t, int l, int r, int pos, WeightType k){
+                if (l == r){
+                    tree_[t] = {node(l-1, k), kLazyNil};
+                    return;
+                }
+                push_down(t, l, r);
+                int m = (l+r)/2;
+                (pos <= m) ? update(2*t,l,m,pos,k) : update(2*t+1,m+1,r,pos,k);
+                tree_[t].val = Ops::combine(tree_[2*t].val, tree_[2*t+1].val);
+            }
+
+            void update(int t, int l, int r, int a, int b, WeightType k){
+                // case 1: [l...r] [a...b] or [a...b] [l...r]
+                if (l > r || r < a || b < l) return;
+                // case 2.1: t is leaf node
+                if (l == r){
+                    tree_[t] = {tree_[t].val + k, kLazyNil};
+                    return;
+                }
+                // case 2.2: [a...l...r...b]
+                if (a <= l && r <= b){
+                    tree_[t].val = apply_lazy(tree_[t].val, k, r-l+1);
+                    tree_[t].lazy = compose_lazy(tree_[t].lazy, k);
+                    return;
+                }
+                // case 3: overlap, fallback to children
+                push_down(t, l, r);
+                int m = (l+r) / 2;
+                update(2*t,l,m,a,b,k);
+                update(2*t+1,m+1,r,a,b,k);
+                tree_[t].val = Ops::combine(tree_[2*t].val, tree_[2*t+1].val);
+            }
+
+        public:
+            static_assert(
+                monoid::is_valid_range_add_compat_ops<OpsTemplate<WeightType>, WeightType>::value,
+                "OpsTemplate must be range-add compatible: only sumops / maxops / minops are supported"
+            );
+            static_assert(
+                !IndexReturn || monoid::is_valid_monoid_selective_ops<Ops, NodeType>::value,
+                "When IndexReturn=true, OpsTemplate must be a comparative monoid (maxops or minops)"
+            );
+
+        public:
+            /** Constructs an empty tree of size n (all elements = identity). */
+            explicit ModernLazySegmentTree(int n) : n_(n), tree_(4 * n) {}
+
+            /** Constructs a tree initialised from arr (0-based). */
+            explicit ModernLazySegmentTree(const std::vector<WeightType>& arr)
+                : n_(arr.size()), tree_(4 * n_) {
+                build(1, 1, n_, arr);
+            }
+
+            /** Returns Ops::combine over arr[l..r] (0-based, inclusive). O(log n). */
+            WeightType query(int l, int r) {
+                NodeType q = query(1, 1, n_, l+1, r+1);
+                if constexpr (IndexReturn) return q.value;
+                else return q;
+            }
+
+            /** Adds delta to every arr[i] for i in [l, r] (0-based). O(log n). */
+            void update(int l, int r, WeightType delta) {
+                update(1, 1, n_, l+1, r+1, delta);
+            }
+
+            /** Sets arr[i] = v (0-based). O(log n). */
+            void update(int i, WeightType v) {
+                update(1, 1, n_, i+1, v);
+            }
+
+            /**
+             * @brief Returns the IndexNode (index + value) of the winning element
+             *        over arr[l..r] (0-based, inclusive). Only valid when IndexReturn=true.
+             */
+            IndexNode query_with_index(int l, int r) {
+                static_assert(IndexReturn, "query_with_index is only available when IndexReturn=true");
                 return query(1, 1, n_, l+1, r+1);
             }
     };

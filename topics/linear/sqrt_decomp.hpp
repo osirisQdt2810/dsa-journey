@@ -32,10 +32,17 @@ namespace dsa::linear::sqrt_decomp {
      *   sd.query(1, 4);                       // 2+0+1+9 = 12
      */
     template<
-        typename T, class Ops = sumops<T>,
-        typename = std::enable_if_t<is_valid_monoid_ops<Ops, T>::value>
+        typename T,
+        template<typename> class OpsTemplate = sumops
     >
     class GenericSqrtDecomposition {
+        using Ops = OpsTemplate<T>;
+
+        static_assert(
+            is_valid_monoid_ops<Ops, T>::value,
+            "OpsTemplate<T> must have ::identity() -> T and ::combine(T, T) -> T"
+        );
+
     public:
         GenericSqrtDecomposition() = default;
 
