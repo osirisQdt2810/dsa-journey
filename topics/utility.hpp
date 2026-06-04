@@ -27,19 +27,49 @@ namespace dsa::utility {
         inline constexpr bool has_upper_bound_v = has_upper_bound<T>::value;
     } // namespace traits
 
+    /**
+     * Monoid ops for range-query structures. Each struct provides identity() and combine().
+     * A monoid (S, ·, e) satisfies: associativity (a·b)·c = a·(b·c), identity e·a = a·e = a.
+     *
+     * Flags:
+     *   is_idemp            — idempotent  : combine(a, a) = a  ∀a
+     *   is_selective      — selective   : combine(a, b) ∈ {a, b}  ∀a,b
+     *   is_invertible       — invertible  : ∀a ∃a⁻¹ s.t. a·a⁻¹ = e  (group axiom)
+     *   is_range_add_compat — shift-covariant: ∃f s.t. combine(a₁+d,…,aₙ+d) = f(combine(a₁,…,aₙ), d, n)
+     *                           where f(s,d,n) = s+d·n  (sum),  f(s,d,n) = s+d  (max/min)
+     *
+     * | ops | idemp | comp | invert | range_add | identity |
+     * |-----|-------|------|--------|-----------|----------|
+     * | sum |       |      |   ✓    |     ✓     | 0        |
+     * | mul |       |      |        |           | 1        |
+     * | max |   ✓   |  ✓   |        |     ✓     | -∞       |
+     * | min |   ✓   |  ✓   |        |     ✓     | +∞       |
+     * | gcd |   ✓   |      |        |           | 0        |
+     * | lcm |   ✓   |      |        |           | 1        |
+     * | or  |   ✓   |      |        |           | 0        |
+     * | and |   ✓   |      |        |           | ~0       |
+     */
     namespace monoid {
         template<typename ValueType>
         struct sumops {
-            static constexpr bool is_invertible = true;
+            static constexpr bool is_invertible        = true;
+            static constexpr bool is_range_add_compat  = true;
             static constexpr ValueType identity(){ return ValueType(0); }
             static ValueType combine(const ValueType& a, const ValueType& b){ return a + b; }
             static ValueType inverse(const ValueType& info, const ValueType& old_val, const ValueType& new_val){ return info - old_val + new_val; }
         };
 
         template<typename ValueType>
+        struct mulops {
+            static constexpr ValueType identity(){ return ValueType(1); }
+            static ValueType combine(const ValueType& a, const ValueType& b){ return a * b; }
+        };
+
+        template<typename ValueType>
         struct maxops {
-            static constexpr bool is_idemp = true;
-            static constexpr bool is_comparative = true;
+            static constexpr bool is_idemp             = true;
+            static constexpr bool is_selective        = true;
+            static constexpr bool is_range_add_compat  = true;
             static constexpr ValueType identity(){
                 if constexpr (std::is_arithmetic_v<ValueType>) {
                     return std::numeric_limits<ValueType>::lowest();
@@ -55,8 +85,9 @@ namespace dsa::utility {
 
         template<typename ValueType>
         struct minops {
-            static constexpr bool is_idemp = true;
-            static constexpr bool is_comparative = true;
+            static constexpr bool is_idemp             = true;
+            static constexpr bool is_selective        = true;
+            static constexpr bool is_range_add_compat  = true;
             static constexpr ValueType identity(){
                 if constexpr (std::is_arithmetic_v<ValueType>) {
                     return std::numeric_limits<ValueType>::max();
@@ -124,11 +155,11 @@ namespace dsa::utility {
         > {};
 
         template<typename O, typename W, typename = void>
-        struct is_valid_monoid_comparative_ops : std::false_type {};
+        struct is_valid_monoid_selective_ops : std::false_type {};
 
         template<typename O, typename W>
-        struct is_valid_monoid_comparative_ops<O, W,
-            std::enable_if_t<O::is_comparative && is_valid_monoid_ops<O, W>::value>
+        struct is_valid_monoid_selective_ops<O, W,
+            std::enable_if_t<O::is_selective && is_valid_monoid_ops<O, W>::value>
         > : std::true_type {};
 
         template<typename O, typename W, typename = void>
@@ -145,6 +176,14 @@ namespace dsa::utility {
         template<typename O, typename W>
         struct is_valid_monoid_invertible_ops<O, W,
             std::enable_if_t<O::is_invertible && is_valid_monoid_ops<O, W>::value>
+        > : std::true_type {};
+
+        template<typename O, typename W, typename = void>
+        struct is_valid_range_add_compat_ops : std::false_type {};
+
+        template<typename O, typename W>
+        struct is_valid_range_add_compat_ops<O, W,
+            std::enable_if_t<O::is_range_add_compat && is_valid_monoid_ops<O, W>::value>
         > : std::true_type {};
     }
 
