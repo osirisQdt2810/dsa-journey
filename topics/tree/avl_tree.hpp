@@ -176,7 +176,6 @@ protected:
      */
     Node* remove(Node* parent, T key) override {
         if (parent == nullptr) return nullptr;
-
         if (parent->value < key) {
             parent->right = remove(parent->right, key);
         } else if (parent->value > key) {
@@ -215,6 +214,9 @@ protected:
     }
 
 public:
+    using BinarySearchTree<T>::insert;
+    using BinarySearchTree<T>::remove;
+    
     /**
      * @brief Creates an empty AVL tree.
      */
