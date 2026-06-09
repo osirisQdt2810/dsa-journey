@@ -47,6 +47,7 @@ namespace dsa::linear::sparse_table {
                 static constexpr IndexNode upper_bound() { return {-1, std::numeric_limits<T>::max()}; }
                 bool operator<(const IndexNode& o) const { return value < o.value; }
                 bool operator>(const IndexNode& o) const { return value > o.value; }
+                operator T() const { return value; }
             };
 
         protected:
@@ -104,8 +105,7 @@ namespace dsa::linear::sparse_table {
                         l = l + (1 << j);
                     }
                 }
-                if constexpr (IndexReturn) return target.value;
-                else return target;
+                return target;
             }
 
             /**

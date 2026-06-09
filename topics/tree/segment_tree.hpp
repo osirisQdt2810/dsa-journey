@@ -121,6 +121,7 @@ namespace dsa::tree {
                 static constexpr IndexNode upper_bound() { return {-1, std::numeric_limits<WeightType>::max()}; }
                 bool operator<(const IndexNode& o) const { return value < o.value; }
                 bool operator>(const IndexNode& o) const { return value > o.value; }
+                operator WeightType() const { return value; }
             };
 
         protected:
@@ -219,9 +220,7 @@ namespace dsa::tree {
 
             /** Returns Ops::combine over arr[l..r] (0-based, inclusive). */
             WeightType query(int l, int r){
-                NodeType q = query(1, 1, n_, l+1, r+1);
-                if constexpr (IndexReturn) return q.value;
-                else return q;
+                return query(1, 1, n_, l+1, r+1);
             }
 
             /** Sets arr[i] = v (0-based) in O(log n). */
@@ -442,9 +441,7 @@ namespace dsa::tree {
 
             /** Returns Ops::combine over arr[l..r] (0-based, inclusive). O(log n). */
             WeightType query(int l, int r) {
-                NodeType q = query(1, 1, n_, l+1, r+1);
-                if constexpr (IndexReturn) return q.value;
-                else return q;
+                return query(1, 1, n_, l+1, r+1);
             }
 
             /** Adds delta to every arr[i] for i in [l, r] (0-based). O(log n). */
