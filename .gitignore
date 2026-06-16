@@ -1,4 +1,6 @@
 tests/
 build/
+results/
 .vscode/
 .DS_Store
+.session
