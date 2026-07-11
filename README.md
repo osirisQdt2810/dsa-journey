@@ -61,11 +61,8 @@ dsa-journey/
 │   ├── dsa-mentorship/
 │   └── fse13-faang/
 │
-├── scripts/                    # Tooling (see below)
-│   └── find_unsolved_leetcode.py
-│
-└── .claude/commands/           # Custom Claude Code slash commands
-    └── commit-progress.md      # /commit-progress workflow
+└── scripts/                    # Tooling (see below)
+    └── find_unsolved_leetcode.py
 ```
 
 ---
@@ -100,21 +97,6 @@ Grouped by the technique they teach:
 
 ---
 
-## 📅 Daily LeetCode
-
-One folder per day under `src/leetcode/daily/YYYY_MM_DD/`, each holding that day's solution. Commits follow a strict, greppable format so the log doubles as a technique index:
-
-```
-[daily] add leetcode daily challenge DD-MM-YYYY (lc <NUMBER> - <technique>)
-```
-
-Example:
-```
-[daily] add leetcode daily challenge 11-07-2026 (lc 2685 - DSU component edge count)
-```
-
----
-
 ## 🎓 Courses (git submodules)
 
 Coursework is tracked as independent repositories via git submodules, so clone with `--recursive`:
@@ -136,9 +118,6 @@ git submodule update --init --recursive
 
 ### `scripts/find_unsolved_leetcode.py`
 Queries LeetCode (via its GraphQL API) to surface **unsolved** problems filtered by topic/keyword — so I can target weak areas instead of picking randomly.
-
-### `/commit-progress` (Claude Code command)
-A custom slash command (`.claude/commands/commit-progress.md`) that commits study progress across all three repos — the main repo's daily LeetCode **and** the two course submodules — one commit per unit, on the correct per-repo branch, using the exact message conventions above. Never stages out-of-scope files, never force-adds, never pushes on its own.
 
 ---
 
