@@ -71,13 +71,15 @@ Pick `[add]` for brand-new files (untracked / added), `[update]` for modificatio
 - `<technique>` here is a concise **5-10 word** main-technique phrase (same spirit as the other repos — not a long free-text sentence).
 - LC number from the filename's leading 4-digit id (keep zero-padding, e.g. `lc 0076`). If it's a homework-numbered file (`1. ….py`, no LC id), use `(hw <n>)` instead of `(lc …)`.
 
-**Target D — main-repo review problem** (`src/leetcode/problems/<topic>/`; keep the free-text style already in this repo's git log for `problems/`):
+**Target D — main-repo review problem** (`src/leetcode/problems/<topic>/`):
 ```
-[add] solve <Problem Name> (lc <NUMBER>) - <technique>
+[add][review][<topic>] solve lc <NUMBER> - <technique>
 ```
-- `[update]` for modifications to already-tracked files.
-- `<Problem Name>` = the LeetCode title (from the filename, minus the leading id). `<NUMBER>` = the code's real LC id (strip zero-padding, e.g. `lc 3604`).
-- `<technique>` here is a **descriptive** phrase/clause (longer than the other targets — a short sentence is fine), matching the existing `problems/` commits, e.g. `Dijkstra with time-windowed edges, arrival = max(t, start)+1`.
+- `[update]` (instead of `[add]`) for modifications to already-tracked files.
+- `[<topic>]` = the problem's **canonical topic slug** from `scripts/find_unsolved_leetcode.py` → `TOPIC_ALIASES` (e.g. `shortest-path`, `two-pointers`, `union-find`) — **not** the `problems/<topic>/` folder name and **not** the branch/series name.
+- `<NUMBER>` = the code's real LC id, **without** zero-padding (e.g. `lc 3604`). No parentheses around it.
+- `<technique>` here is a **descriptive** phrase/clause (longer than the other targets — a short sentence is fine), e.g. `Dijkstra with time-windowed edges, arrival = max(t, start)+1`.
+- Full example: `[add][review][shortest-path] solve lc 3112 - Dijkstra on undirected graph, skip node v when arrival >= disappear[v]`
 
 `<technique>` = the **core idea**: max **5-6 words** (Targets A/B), **5-10 words** (Target C), or a **descriptive phrase/clause** (Target D).
 
