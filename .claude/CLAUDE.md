@@ -10,10 +10,16 @@ This repo is a personal DSA study journal (main repo `dsa-journey` + two git sub
    base branch** (`master` in the main repo, `main` in the submodules). Organize by topic; solution
    code reaches the base branch only via a **merged PR** (the user merges PRs themselves).
    Branch naming:
-   - daily LeetCode (main repo) → `phuc-nguyen/daily-lc-challenge`
+   - daily LeetCode (main repo `src/leetcode/daily/`) → `phuc-nguyen/daily-lc-challenge`
    - dsa-mentorship lesson `lesson-NN-<topic>` → `phuc-nguyen/lesson-NN-<topic>`
    - fse13-faang review `NN-<topic>` → `phuc-nguyen/review-NN-<topic>` (prefer an existing
      `phuc-nguyen/review-NN*` match; topics are sometimes shortened)
+   - main-repo review series (`src/leetcode/problems/<topic>/`) → `phuc-nguyen/review-<series>`, a
+     self-defined series grouping several related `problems/<topic>` folders under one branch
+     (e.g. `review-graph-sp-mst` covers `shortest_path/` + MST). Folder does not map 1:1 to a
+     branch — prefer an existing `phuc-nguyen/review-*` that fits the topic's algorithm family; if
+     none exists, create `phuc-nguyen/review-<series>` named from the canonical topic vocabulary in
+     `scripts/find_unsolved_leetcode.py` (`TOPIC_ALIASES`). Ask only when it's genuinely ambiguous.
 
 2. **Only "overall" / non-solution files may be committed directly on the base branch, and only
    when the user clarifies it directly**: this `CLAUDE.md` and other Claude config, `README`,
