@@ -87,6 +87,27 @@ Pick `[add]` for brand-new files (untracked / added), `[update]` for modificatio
 - **Read the source file(s)** in each unit first. Derive both the problem number and the technique from the **actual code** (the solved function + algorithm), NOT from the filename — filenames are often leftover templates and may not match the code inside.
 - If the filename's number disagrees with the code, keep the filename as-is but use the **code's** real number in the message, and note the mismatch in your summary.
 
+## Annotate each solution before committing (REQUIRED)
+
+Before staging any solution file, prepend a block comment at the **top of the file** (right after the
+`#include`s / imports, before the `Solution` class) documenting the **reference-optimal** approach.
+Use `/* … */` for C/C++ and the language's block-comment equivalent otherwise (`""" … """` for
+Python). The block must contain, in this order:
+- **Best solution** — the name of the optimal (or near-optimal) algorithm for the problem.
+- **Time & Space complexity** of that best solution (Big-O, e.g. `Time: O(V+E)`, `Space: O(V)`), with a
+  one-clause justification each.
+- **Approach (detail)** — a numbered, step-by-step explanation of *how* the best solution works and
+  *why* it is correct (the key insight), detailed enough to reconstruct the solution from the comment.
+
+Rules for the annotation:
+- Document the **objectively best** solution for the problem, even when the committed code uses a
+  different / less-optimal approach (the user's code may not yet be optimal). If the committed code
+  diverges from the documented best, note that divergence in your commit **summary** (not in the file).
+- Identify the problem from the **actual code**, not the filename.
+- The comment is part of the **same unit commit** (included in the `[add]`/`[update]`), never a
+  separate commit. If a file was already committed this run without it, `--amend` that commit.
+- If you cannot confidently determine the best solution, **ask** rather than guessing.
+
 ## Guardrails
 - **Do NOT add any `Co-Authored-By` / trailer line.** The user writes all the solution code; commits are authored solely by the user.
 - **Never** `git add -A`; stage only the unit's own files.
