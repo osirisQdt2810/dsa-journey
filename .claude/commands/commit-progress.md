@@ -1,12 +1,42 @@
 ---
-description: Commit study progress — daily LeetCode (main repo) + course lessons/homework/revision (submodules), one commit per unit, on the correct per-repo branch; the `push` mode also rebases+pushes every touched branch, and `pr` additionally opens PRs, waits for auto-merge, then rebase-sweeps the other local branches
-argument-hint: "[optional mode: push | pr — push rebases+pushes every touched branch, pr also opens PRs and waits for auto-merge then rebase-sweeps the rest; omit for local commits only] [optional: paths/names to restrict scope, e.g. 2026_07_06 | lesson-06-graph | 01-two-pointers-sliding-window; else all pending]"
-allowed-tools: Bash(git:*), Bash(ls:*), Bash(gh:*), Bash(pre-commit:*), Bash(g++:*), Read, Edit, WebFetch
+description: Commit study progress — daily LeetCode (main repo) + course lessons/homework/revision (submodules), one commit per unit, on the correct per-repo branch; the `push` mode also rebases+pushes every touched branch, and `pr` additionally opens PRs, waits for auto-merge, then rebase-sweeps the other local branches; `pull-lc <ID>` instead pulls a LeetCode statement verbatim into its solution file (no commit)
+argument-hint: "[pull-lc <ID>... — only pull LeetCode statements into their files, nothing else] | [optional mode: push | pr — push rebases+pushes every touched branch, pr also opens PRs and waits for auto-merge then rebase-sweeps the rest; omit for local commits only] [optional: paths/names to restrict scope, e.g. 2026_07_06 | lesson-06-graph | 01-two-pointers-sliding-window; else all pending]"
+allowed-tools: Bash(git:*), Bash(ls:*), Bash(gh:*), Bash(pre-commit:*), Bash(g++:*), Bash(python3:*), Read, Edit, WebFetch
 ---
 
 Commit uncommitted study work across **four targets in three repos** (the main repo hosts both Target A and Target D), each with its own scope, branch convention, and commit-message format. This supersedes the old `commit-daily-leetcode` command and fully covers it (the daily-LeetCode case is Target A below).
 
 The two `courses/*` folders are **git submodules** — commit *inside* the submodule with `git -C courses/<name> …`, on that submodule's own branch. They are independent repos.
+
+## Subcommand — `pull-lc <ID>...` (statement only, no commit)
+
+When the **first** token of `$ARGUMENTS` is `pull-lc`, run **only** this and skip everything else in
+this file (no discovery, no branch switching, no lint, no commit, no push). Every following token is
+a LeetCode problem number; optionally a token after an id may be a file path to pin the target file.
+
+For each id run:
+```
+python3 scripts/pull_leetcode_statement.py <ID> [--file <path>]
+```
+The script resolves the id → slug (`https://leetcode.com/api/problems/all/`), fetches the statement
+HTML from LeetCode's GraphQL `question` query, and writes it into the solution file as a comment
+block **verbatim** — every sentence, every example, the constraints and any follow-up, with
+`<sup>`/`<sub>` rendered as `^`/`_`. **Images are dropped; nothing else is.** Never edit, trim or
+reword the pulled text by hand.
+
+- **Target file:** the single file under `src/leetcode/` or `courses/` named `<ID>. *` (zero-padding
+  allowed). If several match (e.g. a daily copy and a `problems/` copy) or none does, the script
+  stops and lists them — ask the user which one, then re-run with `--file`.
+- **Placement:** an earlier pulled block for the same id is replaced in place (re-running is
+  idempotent); otherwise the first empty `/* */` placeholder (the daily template has one above
+  `class Solution`) is filled; otherwise a new block goes right after `using namespace std;`.
+- The block's first lines are `LC <ID> - <Title>` and the problem URL.
+- The script warns when LeetCode's C++ method name does not appear in the file — that means the
+  filename's id names a different problem than the code solves. Relay the warning; do not "fix" it.
+- If the fetch fails (offline, premium-only), report it and stop — never write a statement from
+  memory in this subcommand.
+- Report per id: the file touched and how (filled placeholder / replaced / inserted). The file stays
+  uncommitted; it is committed later with its solution by a normal `/commit-progress` run.
 
 ## Targets
 
@@ -164,7 +194,9 @@ otherwise (`""" … """` for Python). The block must contain, in this order:
 
 ### Fetching the problem statement + examples (REQUIRED)
 
-The statement and examples must come from the **actual source**, not from memory — use `WebFetch`.
+The statement and examples must come from the **actual source**, not from memory. For LeetCode use
+`python3 scripts/pull_leetcode_statement.py <N> --dry-run` (prints the verbatim block without editing;
+`WebFetch` on leetcode.com pages returns 403). For other sources use `WebFetch`.
 Resolve the source URL per target:
 - **Target A (`src/leetcode/daily/`) and Target D (`src/leetcode/problems/`)** — LeetCode:
   `https://leetcode.com/problems/<slug>/`. Derive `<slug>` from the problem title in kebab-case
@@ -195,6 +227,12 @@ Rules for the annotation:
 - The comment is part of the **same unit commit** (included in the `[add]`/`[update]`), never a
   separate commit. If a file was already committed this run without it, `--amend` that commit.
 - If you cannot confidently determine the best solution, **ask** rather than guessing.
+- **A statement already pulled by `pull-lc`** (a comment block starting `LC <N> - <Title>` for the
+  code's real problem number) already satisfies the Title / Problem / Examples parts. Keep that block
+  **exactly as pulled** — do not trim it to 2–3 examples or reword it — and put the remaining parts
+  (Best solution, Time & Space, Approach, Your solution) in a **second** `/* … */` block directly
+  below it, so a later `pull-lc` re-run never wipes the analysis. If the pulled block is for the
+  wrong problem (filename id ≠ code), re-pull with the code's real id via `--file`.
 
 ## Guardrails
 - **Do NOT add any `Co-Authored-By` / trailer line.** The user writes all the solution code; commits are authored solely by the user.
