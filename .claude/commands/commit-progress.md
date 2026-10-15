@@ -161,10 +161,12 @@ on every PR diff, so an unlinted commit will block auto-merge in `pr` mode.
 
 ## Annotate each solution before committing (REQUIRED)
 
-Before staging any solution file, prepend a block comment at the **top of the file** (right after the
-`#include`s / imports, before the `Solution` class) documenting **the problem itself** and the
-**reference-optimal** approach. Use `/* … */` for C/C++ and the language's block-comment equivalent
-otherwise (`""" … """` for Python). The block must contain, in this order:
+Before staging any solution file, add the annotation at the **top of the file** (right after the
+`#include`s / imports, before the `Solution` class) as **three separate block comments**, in this
+order. Use `/* … */` for C/C++ and the language's block-comment equivalent otherwise (`""" … """` for
+Python).
+
+**Block 1 — the problem** (or the `pull-lc` block, see the rules below):
 - **Title line** — `LC <NUMBER> - <Title>` (or the Codeforces problem id/title for course units), plus
   the source URL.
 - **Problem** — the problem statement, **fetched from the source** (see below), restated faithfully:
@@ -172,25 +174,68 @@ otherwise (`""" … """` for Python). The block must contain, in this order:
 - **Examples** — the source's worked examples (input / output / explanation), **fetched from the
   source**. Keep 2–3 representative ones — enough to pin down the exact I/O shape and at least one
   edge case; do not paste all of them if the source lists many.
-- **Best solution** — the name of the optimal (or near-optimal) algorithm for the problem.
-- **Time & Space complexity** of that best solution (Big-O, e.g. `Time: O(V+E)`, `Space: O(V)`), with a
-  one-clause justification each.
-- **Approach (detail)** — a numbered, step-by-step explanation of *how* the best solution works and
-  *why* it is correct (the key insight), detailed enough to reconstruct the solution from the comment.
-- **Your solution** — a **verdict sentence** stating plainly whether the algorithm the committed code
-  actually runs *is* the best solution documented above. Start it with one of these three verdicts,
-  then justify in the same sentence or the next one:
-  - `MATCHES BEST` — the code implements the documented optimal algorithm.
-  - `SUBOPTIMAL` — the code solves the problem correctly but with worse complexity. State the code's
-    own Time/Space, name the gap (e.g. `O(n^2) vs O(n log C)`), and say why it still passes (or does
-    not) under the stated constraints.
-  - `INCORRECT` — the code does not solve the problem. Name the failing case.
 
-  This section is about **the code in the file**, not the ideal — never write `MATCHES BEST` for a
-  file whose live method is not the optimal one. If the file contains both an optimal and a
-  suboptimal implementation, judge the one actually wired up (the method the platform calls) and
-  name the dead one. Any verdict other than `MATCHES BEST` must also be repeated in the commit
-  **summary**.
+**Block 2 — `Best solution`** — the reference-optimal algorithm, independent of the user's code:
+- `Best solution: <name>` — the optimal (or near-optimal) algorithm for the problem.
+- `Complexity:` — `Time:` and `Space:` in Big-O (e.g. `Time: O(V+E)`, `Space: O(V)`), with a
+  one-clause justification each.
+- `Approach (detail):` — a numbered, step-by-step explanation of *how* the best solution works and
+  *why* it is correct (the key insight), detailed enough to reconstruct the solution from the comment.
+
+**Block 3 — `Your solution`** — the algorithm the **committed code actually runs**, described on its
+own terms, then judged against block 2:
+- `Your solution: <name>` — a short name of the algorithm in the code. If the file holds several
+  implementations, name the one the platform calls (the live method / the lambda it returns) and list
+  the dead ones in one line (`Also in the file (not called): trivial_sol — …`).
+- `Complexity:` — the **code's own** `Time:` and `Space:` in Big-O, with a one-clause justification
+  each (not the best solution's numbers).
+- `Approach:` — a numbered, step-by-step walk-through of what the committed code does, using its own
+  variable / function names, so the reader can follow the code from the comment.
+- `Verdict:` — exactly one of the three verdicts below, then the justification in the same sentence or
+  the next one:
+  - `MATCHES BEST` — the code implements the documented optimal algorithm.
+  - `SUBOPTIMAL` — the code is correct but with worse complexity. Name the gap against block 2
+    (e.g. `O(n^2) vs O(n log C)`) and say why it still passes (or does not) under the constraints.
+  - `INCORRECT` — the code does not solve the problem. Name the failing case.
+  - Mention how it was verified (brute-force / exhaustive test) when you tested it.
+
+  Block 3 is about **the code in the file**, not the ideal — never write `MATCHES BEST` for a file
+  whose live method is not the optimal one. Any verdict other than `MATCHES BEST` must also be
+  repeated in the commit **summary**.
+
+Layout (C++; indent body lines by 4 spaces like the pulled statement):
+```
+/*
+    LC 856 - Score of Parentheses
+    https://leetcode.com/problems/score-of-parentheses/
+    ...statement, examples, constraints...
+*/
+/*
+    Best solution: depth counting
+
+    Complexity:
+        Time:  O(n) — one scan.
+        Space: O(1) — a depth counter and the sum.
+
+    Approach (detail):
+        1. ...
+        2. ...
+*/
+/*
+    Your solution: stack of '(' indices propagating doubled inner scores
+
+    Complexity:
+        Time:  O(n) — each character is pushed / popped once.
+        Space: O(n) — the stack and score[].
+
+    Approach:
+        1. ...
+        2. ...
+
+    Verdict: SUBOPTIMAL — same O(n) time but O(n) vs O(1) extra space; irrelevant at n <= 50.
+        Verified on all balanced strings up to length 18.
+*/
+```
 
 ### Fetching the problem statement + examples (REQUIRED)
 
@@ -216,8 +261,8 @@ summary**. Never silently present reconstructed text as sourced.
 Rules for the annotation:
 - Document the **objectively best** solution for the problem, even when the committed code uses a
   different / less-optimal approach (the user's code may not yet be optimal). When the committed code
-  diverges from the documented best, that divergence goes in **both** places: the **Your solution**
-  verdict inside the file, and your commit **summary**.
+  diverges from the documented best, that divergence goes in **both** places: the `Verdict:` of
+  block 3 inside the file, and your commit **summary**.
 - Identify the problem from the **actual code**, not the filename — then fetch *that* problem's
   statement. If the filename's id points at a different problem than the code solves, the statement
   must match the **code**.
@@ -228,11 +273,13 @@ Rules for the annotation:
   separate commit. If a file was already committed this run without it, `--amend` that commit.
 - If you cannot confidently determine the best solution, **ask** rather than guessing.
 - **A statement already pulled by `pull-lc`** (a comment block starting `LC <N> - <Title>` for the
-  code's real problem number) already satisfies the Title / Problem / Examples parts. Keep that block
-  **exactly as pulled** — do not trim it to 2–3 examples or reword it — and put the remaining parts
-  (Best solution, Time & Space, Approach, Your solution) in a **second** `/* … */` block directly
-  below it, so a later `pull-lc` re-run never wipes the analysis. If the pulled block is for the
-  wrong problem (filename id ≠ code), re-pull with the code's real id via `--file`.
+  code's real problem number) **is** block 1. Keep it **exactly as pulled** — do not trim it to 2–3
+  examples or reword it — and write blocks 2 and 3 as their own `/* … */` blocks directly below it, so
+  a later `pull-lc` re-run never wipes the analysis. If the pulled block is for the wrong problem
+  (filename id ≠ code), re-pull with the code's real id via `--file`.
+- When a commit touches a file that already carries the **older single-block analysis** (Best
+  solution, Complexity, Approach and a one-paragraph `Your solution:` verdict in one comment), split
+  it into the block 2 / block 3 layout above as part of that unit's commit.
 
 ## Guardrails
 - **Do NOT add any `Co-Authored-By` / trailer line.** The user writes all the solution code; commits are authored solely by the user.
