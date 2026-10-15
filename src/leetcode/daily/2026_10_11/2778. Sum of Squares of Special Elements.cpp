@@ -12,60 +12,50 @@
 using namespace std;
 
 /*
-    LC 1614 - Maximum Nesting Depth of the Parentheses
-    https://leetcode.com/problems/maximum-nesting-depth-of-the-parentheses/
+    LC 2778 - Sum of Squares of Special Elements
+    https://leetcode.com/problems/sum-of-squares-of-special-elements/
 
     Problem:
-        Given a valid parentheses string s, return the nesting depth of s. The nesting depth is the
-        maximum number of nested parentheses.
+        You are given a 1-indexed integer array nums of length n. An element nums[i] is called special
+        if i divides n, i.e. n % i == 0. Return the sum of the squares of all special elements of nums.
 
         Constraints:
-            1 <= s.length <= 100
-            s consists of digits 0-9 and characters '+', '-', '*', '/', '(', and ')'.
-            It is guaranteed that parentheses expression s is a VPS.
+            1 <= nums.length == n <= 50
+            1 <= nums[i] <= 50
 
     Examples:
-        Input: s = "(1+(2*3)+((8)/4))+1"
-        Output: 3
-        Explanation: digit 8 is inside of 3 nested parentheses.
+        Input: nums = [1,2,3,4]
+        Output: 21
+        Explanation: special indices 1, 2, 4 -> 1*1 + 2*2 + 4*4 = 21.
 
-        Input: s = "(1)+((2))+(((3)))"
-        Output: 3
+        Input: nums = [2,7,1,19,18,3]
+        Output: 63
+        Explanation: special indices 1, 2, 3, 6 -> 2*2 + 7*7 + 1*1 + 3*3 = 63.
 
-        Input: s = "()(())((()()))"
-        Output: 3
-
-    Best solution: single scan with an open-bracket counter, tracking its maximum.
+    Best solution: enumerate divisors of n (direct scan, or pairs i and n/i up to sqrt(n)).
 
     Complexity:
-        Time:  O(n) — one pass.
-        Space: O(1) — two integers.
+        Time:  O(n) for the direct scan (O(sqrt n) with divisor pairs) — n <= 50, so both are trivial.
+        Space: O(1).
 
     Approach (detail):
-        1. depth = 0, best = 0.
-        2. On '(' : depth++, best = max(best, depth). On ')' : depth--. Other characters are ignored.
-        3. depth at any position is exactly how many parentheses enclose it (s is valid, so it never
-           goes negative), so the maximum over the scan is the nesting depth. No stack is needed.
+        1. For every 1-indexed i in [1, n], check n % i == 0.
+        2. If so add nums[i-1]^2 to the answer (max 50 * 50^2, fits in int).
+        3. Optional speed-up: for i <= sqrt(n) with n % i == 0, add both i and n/i (once if equal).
 
     Your solution:
-        MATCHES BEST — the O(n)/O(1) counter scan. Note: this file is named
-        "2778. Sum of Squares of Special Elements.cpp" but the code solves LC 1614 (the 2026_10_06
-        file holds LC 2778 — the two filenames are swapped).
+        MATCHES BEST — direct O(n) divisor scan; the O(sqrt n) variant gives no practical gain at
+        n <= 50.
 */
 
 class Solution {
     public:
-        int maxDepth(string s) {
-            int n = s.size();
-            int open_brackets = 0;
+        int sumOfSquares(vector<int>& nums) {
+            int n = nums.size();
             int res = 0;
-            for (int i = 0; i < n; ++i){
-                if (s[i] == '('){
-                    ++open_brackets;
-                    res = max(res, open_brackets);
-                }
-                else if (s[i] == ')'){
-                    --open_brackets;
+            for (int i = 1; i <= n; ++i){
+                if (n % i == 0){
+                    res += nums[i-1] * nums[i-1];
                 }
             }
             return res;
