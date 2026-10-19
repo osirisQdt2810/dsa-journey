@@ -59,64 +59,88 @@ using namespace std;
         4. Answer = n - (longest length), or -1 if no window ever matched.
 */
 /*
-    Your solution: in-place prefix sums + hash map of first index per prefix value
+    Your solution: two-pointer sliding window for the longest block with sum = total - x (sliding_window)
 
     Complexity:
-        Time:  O(n) expected — one pass to build prefix sums, one pass with O(1) hash lookups.
-        Space: O(n) — the unordered_map of prefix sums.
+        Time:  O(n) — one pass for the total, then each index enters and leaves the window once.
+        Space: O(1) — l, r and the running sum.
 
     Approach:
-        1. nums is rewritten in place into prefix sums with nums[0] = 0 (one extra slot pushed).
-        2. x is replaced by total - x (the required middle-block sum); if it is 0 the answer is n.
-        3. For j = 1..n, target = nums[j] - x; if some earlier prefix equals target at index i - 1,
-           the block i..j has the right sum, and res keeps the longest such length.
-        4. Each prefix value is inserted only once (its first index), which keeps blocks longest;
-           the answer is n - res, or -1 when res stays -1.
+        1. x is replaced by total - x, the sum the kept middle block must have.
+        2. For each r: sum += nums[r]; while l <= r and sum > x, drop nums[l] and advance l.
+        3. When sum == x, res = max(res, r - l + 1). The l <= r guard lets the window shrink to empty,
+           which handles a negative target (never matches, -1) and a zero target (empty block, n).
+        4. Return n - res, or -1 if no block matched.
+        Also in the file (not called): suboptimal — prefix sums + hash map of first index per prefix,
+        O(n) time but O(n) space.
 
-    Verdict: SUBOPTIMAL — correct with O(n) time, but O(n) extra space for the hash map vs O(1) for
-        the two-pointer window (valid because every nums[i] is positive); it passes at n <= 10^5.
-        Note: the debug cout lines inside the loop print about 2 * 10^5 lines per test on
-        LeetCode, which slows the run noticeably and risks the output limit. Verified (with stdout
-        silenced) against a brute force over every prefix / suffix split on 20000 random cases.
+    Verdict: MATCHES BEST — the O(n) / O(1) sliding window. Verified against a brute force over every
+        prefix / suffix split on 20000 random cases, the problem's examples, and n = 10^5 edge cases
+        (target 0 and target 10^4).
 */
 class Solution {
     public:
         int minOperations(vector<int>& nums, int x) {
             int n = nums.size();
-            int temp = nums[0];
-            nums.push_back(0);
-            nums[0] = 0;
-            // a[0] = 0;
-            // a[1] = nums[0];
-            // a[2] = a[1] + nums[1];
-            // ...
-            // a[i] = a[i-1] + nums[i-1];
-            for (int i = 1; i <= n; ++i){
-                int curr = nums[i];
-                nums[i] = temp + nums[i-1];
-                temp = curr;
-            }
-            x = nums[n] - x;
-            if (x == 0) return n;
 
-            // find (i, j) (0-index) where len=j-i+1 max, sum(i...j)=x
-            // find (i, j): sum(j)-sum(i-1)=x
-            // find (i, j) (0-index): sum(j+1)-sum(i) = x
-            unordered_map<int, int> hash{{0, 0}};
-            int res = -1;
-            for (int j = 1; j <= n; ++j){
-                int target = nums[j] - x;
-                cout << "j = " << j << " x=" << x << " nums[j] = " << nums[j] << " t=" << target << "\n";
-                if (hash.count(target)){
-                    int i = hash[target] + 1;
-                    res = max(res, j-i+1);
-                    cout << "r = " << res << " i=" << i << "\n";
+            auto suboptimal = [&]() -> int {
+                int temp = nums[0];
+                nums.push_back(0);
+                nums[0] = 0;
+                // a[0] = 0;
+                // a[1] = nums[0];
+                // a[2] = a[1] + nums[1];
+                // ...
+                // a[i] = a[i-1] + nums[i-1];
+                for (int i = 1; i <= n; ++i){
+                    int curr = nums[i];
+                    nums[i] = temp + nums[i-1];
+                    temp = curr;
                 }
-                if (!hash.count(nums[j])){
-                    hash[nums[j]] = j;
+                x = nums[n] - x;
+                if (x == 0) return n;
+
+                // find (i, j) (0-index) where len=j-i+1 max, sum(i...j)=x
+                // find (i, j): sum(j)-sum(i-1)=x
+                // find (i, j) (0-index): sum(j+1)-sum(i) = x
+                unordered_map<int, int> hash{{0, 0}};
+                int res = -1;
+                for (int j = 1; j <= n; ++j){
+                    int target = nums[j] - x;
+                    // cout << "j = " << j << " x=" << x << " nums[j] = " << nums[j] << " t=" << target << "\n";
+                    if (hash.count(target)){
+                        int i = hash[target] + 1;
+                        res = max(res, j-i+1);
+                        // cout << "r = " << res << " i=" << i << "\n";
+                    }
+                    if (!hash.count(nums[j])){
+                        hash[nums[j]] = j;
+                    }
                 }
-            }
-            return (res < 0) ? -1 : (n - res);
+                return (res < 0) ? -1 : (n - res);
+            };
+
+            auto sliding_window = [&]() -> int {
+                int l = 0;
+                int sum = 0;
+                int res = -1;
+                for (int r = 0; r < n; ++r) sum += nums[r];
+                x = sum - x;
+                sum = 0;
+                for (int r = 0; r < n; ++r){
+                    sum += nums[r];
+                    while (l <= r && sum > x){
+                        sum -= nums[l];
+                        ++l;
+                    }
+                    if (sum == x){
+                        res = max(res, r - l + 1);
+                    }
+                }
+                return (res < 0) ? -1 : (n - res);
+            };
+
+            return sliding_window();
         }
 };
 
