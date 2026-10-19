@@ -92,10 +92,11 @@ using namespace std;
 
     Complexity:
         Time:  O(n * k) — each index pushes k residues forward once.
-        Space: O(k) — only prev_row / curr_row.
+        Space: O(k) — only prev_row / curr_row (curr_row is allocated once and reset with assign).
 
     Approach:
-        1. curr_row starts at 0 and counts the single-element subarray: curr_row[nums[i] % k]++.
+        1. curr_row.assign(k, 0) resets the row (no per-index allocation), then the single-element
+           subarray is counted: curr_row[nums[i] % k]++.
         2. For i > 0, every residue k0 of a subarray ending at i - 1 becomes
            (nums[i] * k0) % k: curr_row[1LL * nums[i] * k0 % k] += prev_row[k0].
         3. Add curr_row into ans, then prev_row = curr_row.
@@ -147,8 +148,9 @@ class Solution {
 
             auto forward_propagation = [&]() -> void {
                 vector<ll> prev_row(k, 0);
+                vector<ll> curr_row(k, 0);
                 for (int i = 0; i < n; ++i){
-                    vector<ll> curr_row(k, 0);
+                    curr_row.assign(k, 0);
                     curr_row[nums[i] % k]++;
                     if (i > 0){
                         for (int k0 = 0; k0 < k; ++k0){
