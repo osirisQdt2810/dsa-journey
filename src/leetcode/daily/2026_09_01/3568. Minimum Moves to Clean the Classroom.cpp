@@ -99,12 +99,14 @@ using namespace std;
         Space: O(m * n * 2^L) — seen and best_energy as 2^L x m x n tables, plus the queue.
 
     Approach:
-        1. Index litter cells in `litters` (cell -> bit) and find the start (xs, ys).
+        1. Number litter cells into is_litter[x][y] (bit index, -1 elsewhere) and find the start
+           (xs, ys); the `litters` hash map is still filled, only the unused bfs_on_state reads it.
         2. better_bfs_on_state: pop level by level (counter X, depth); return depth as soon as a
            popped state has every litter bit; states with e == 0 are not expanded.
-        3. For each neighbour (inside the grid, not 'X'): new_mask adds the litter bit, new_energy
-           is E on 'R' else e - 1. Skip it when seen[new_mask][x][y] and new_energy <=
-           best_energy[mask][x][y]; otherwise record best_energy[mask][x][y] = new_energy and push.
+        3. For each neighbour (inside the grid, not 'X'): new_mask adds bit is_litter[x][y] when it
+           is >= 0, new_energy is E on 'R' else e - 1. Skip it when seen[new_mask][x][y] and
+           new_energy <= best_energy[mask][x][y]; otherwise record best_energy[mask][x][y] =
+           new_energy and push.
         4. Note: best_energy is keyed by the source `mask`, not `new_mask`. This is still sound —
            for a given cell, every source mask maps to a single new_mask, so each record is a
            real earlier visit of the same target state — it only lets the same target state be
@@ -113,7 +115,7 @@ using namespace std;
            seen[mask][x][y][e] table (no dominance pruning, O(2^L * m * n * E) memory).
 
     Verdict: MATCHES BEST — BFS over (cell, mask) with max-energy dominance, as above.
-        Verified against an independent full-state BFS on 400000 random grids (up to 8x8,
+        Verified against an independent full-state BFS on 300000+ random grids (up to 8x8,
         E <= 12, walls / resets / up to 10 litters) and on the three examples.
 */
 class Solution {
@@ -124,7 +126,7 @@ class Solution {
 
             int L{0}, xs{0}, ys{0}, E{energy};
             unordered_map<int, int> litters;
-            vector<vector<bool>> is_litter(m, vector<bool>(n, false));
+            vector<vector<int>> is_litter(m, vector<int>(n, -1));
             for (int x = 0; x < m; ++x){
                 for (int y = 0; y < n; ++y){
                     if (classroom[x][y] == 'S'){
@@ -133,6 +135,7 @@ class Solution {
                     }
                     else if (classroom[x][y] == 'L'){
                         litters[x*n+y] = L++;
+                        is_litter[x][y] = L-1;
                     }
                 }
             }
@@ -219,8 +222,10 @@ class Solution {
                             if (classroom[x][y] == 'X') continue;
                             int new_mask = mask;
                             if (classroom[x][y] == 'L'){
-                                int l_index = litters[x*n+y];
-                                new_mask |= (1 << l_index);
+                                int l_index = is_litter[x][y];
+                                if (l_index >= 0){
+                                    new_mask |= (1 << l_index);
+                                }
                             }
                             int new_energy = e-1;
                             if (classroom[x][y] == 'R'){
