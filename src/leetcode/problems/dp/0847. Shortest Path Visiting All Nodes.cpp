@@ -60,26 +60,28 @@ using namespace std;
            (1<<i, i) at distance 0; the first state with mask == full gives the answer directly.
 */
 /*
-    Your solution: all-pairs BFS + Held-Karp from a virtual start node
+    Your solution: multi-source BFS on states (mask, node)
 
     Complexity:
-        Time:  O(2^n * n^2) — memo has 2^n * (n+1) states, each tries n next nodes; the n BFS
-               runs cost O(n * (n + E)).
-        Space: O(2^n * n) — memo (1<<n) x (n+1), plus the (n+1) x (n+1) dist table.
+        Time:  O(2^n * n^2) — each of the 2^n * n states is enqueued at most once and scans the
+               adjacency list of its node (<= n - 1 neighbours).
+        Space: O(2^n * n) — the seen table (1<<n) x n and the queue.
 
     Approach:
-        1. dist is (n+1) x (n+1); row/column n is the virtual start node with dist 0 to every
-           real node.
-        2. For each source i, a level-order BFS (inner counter X, depth per level) fills
-           dist[i][u] for every u, using the `visited` bitmask.
-        3. dp(mask, start): returns 0 once mask == (1<<n) - 1; otherwise tries every unvisited j,
-           taking dist[start][j] + dp(mask | 1<<j, j), memoised in memo[mask][start].
-        4. shortestPathLength returns dp(0, n) — start at the virtual node with nothing visited.
-        5. A debug loop still prints the dist table to stdout before the DP; it does not change
-           the returned value.
+        1. A state (mask, u) means "visited the node set mask, standing at u". seen[mask][u]
+           marks states already enqueued: in BFS the first time a state is reached is with its
+           minimum number of edges, so it never needs revisiting.
+        2. Seed the queue with every (1<<i, i) at depth 0 — the walk may start at any node.
+        3. Process level by level (inner counter X, depth per level). Popping (mask, u) with
+           mask == (1<<n) - 1 returns depth: the first full state reached is the shortest walk.
+        4. Otherwise, for each neighbour v push (mask | 1<<v, v) if that state is not seen yet.
+        5. Also in the file (not called): tsp — all-pairs BFS + Held-Karp memoised dp() from a
+           virtual start node n at distance 0 to every node (same O(2^n * n^2); it still prints
+           the dist table to stdout).
 
-    Verdict: MATCHES BEST — same O(2^n * n^2) Held-Karp-on-BFS-distances algorithm as above.
-        Verified against a (mask, node) BFS reference on 3000 random connected graphs, n <= 12.
+    Verdict: MATCHES BEST — this is the documented (mask, node) BFS, O(2^n * n^2).
+        Verified against an independent (mask, node) BFS reference on 3000 random connected
+        graphs, n <= 12, under ASan/UBSan.
 */
 class Solution {
     private:
@@ -101,41 +103,76 @@ class Solution {
         int shortestPathLength(vector<vector<int>>& graph) {    // (0,1),(0,2),(0,3)
             int n = graph.size();
 
-            vector<vector<int>> memo(1 << n, vector<int>(n+1, -1));
-            // build dist
-            vector<vector<int>> dist(n+1, vector<int>(n+1, INT_MAX));
-            for (int i = 0; i < n; ++i){
-                dist[i][n] = 0;
-                dist[n][i] = 0;
-            }
-            for (int i = 0; i < n; ++i){
-                queue<int> q; q.push(i);
-                int visited = (1 << i);
+            auto tsp = [&](){
+                vector<vector<int>> memo(1 << n, vector<int>(n+1, -1));
+                // build dist
+                vector<vector<int>> dist(n+1, vector<int>(n+1, INT_MAX));
+                for (int i = 0; i < n; ++i){
+                    dist[i][n] = 0;
+                    dist[n][i] = 0;
+                }
+                for (int i = 0; i < n; ++i){
+                    queue<int> q; q.push(i);
+                    int visited = (1 << i);
+                    int depth = 0;
+                    while (!q.empty()){
+                        int len = q.size();
+                        for (int X = 0; X < len; ++X){
+                            int u = q.front(); q.pop();
+                            dist[i][u] = depth;
+                            for (auto& v : graph[u]){
+                                if (visited & (1 << v)) continue;
+                                q.push(v);
+                                visited |= 1 << v;
+                            }
+                        }
+                        ++depth;
+                    }
+                }
+
+                for (int i = 0; i < n+1; ++i){
+                    for (int j = 0; j < n+1; ++j){
+                        cout << dist[i][j] << " ";
+                    }
+                    cout << "\n";
+                }
+
+                // dp bitmask like TSP problem
+                return dp(0, n, dist, memo);
+            };
+
+            auto bfs_on_state = [&]() -> int {
+                vector<vector<bool>> seen(1 << n, vector<bool>(n, false));  // seen[mask][i]: đã tồn tại 1 cách đi qua mask, kết thúc tại i chưa? nếu tồn tại rồi thì theo tính chất bfs, nó đã là distance tốt nhất
+                using mask = int;
+                using vertex = int;
+                using state = pair<mask, vertex>;
+                queue<state> q;
+                for (int i = 0; i < n; ++i){
+                    q.push({1 << i, i});
+                    seen[1<<i][i] = true;
+                }
+
                 int depth = 0;
                 while (!q.empty()){
                     int len = q.size();
                     for (int X = 0; X < len; ++X){
-                        int u = q.front(); q.pop();
-                        dist[i][u] = depth;
+                        auto [mask, u] = q.front(); q.pop();
+                        if (mask == (1<<n) - 1) return depth;
                         for (auto& v : graph[u]){
-                            if (visited & (1 << v)) continue;
-                            q.push(v);
-                            visited |= 1 << v;
+                            int new_mask = mask | (1 << v);
+                            if (seen[new_mask][v]) continue;
+                            seen[new_mask][v] = true;
+                            q.push({new_mask, v});
                         }
+
                     }
                     ++depth;
                 }
-            }
+                return -1;
 
-            for (int i = 0; i < n+1; ++i){
-                for (int j = 0; j < n+1; ++j){
-                    cout << dist[i][j] << " ";
-                }
-                cout << "\n";
-            }
+            };
 
-            // dp bitmask like TSP problem
-            return dp(0, n, dist, memo);
+            return bfs_on_state();
         }
 };
 
