@@ -62,25 +62,24 @@ using namespace std;
         4. Return ans, or -1 if no pair exists.
 */
 /*
-    Your solution: prefix sums + hash map, best-left / best-right arrays, split-point scan
+    Your solution: sliding window + best-length-so-far array (sliding_window)
 
     Complexity:
-        Time:  O(n) expected — three linear passes with O(1) average hash lookups.
-        Space: O(n) — left, right and the val2index map.
+        Time:  O(n) — r advances once per element and l only moves forward.
+        Space: O(n) — best[], one entry per right end.
 
     Approach:
-        1. Turn arr into prefix sums in place: arr[k] = sum of the first k values (arr grows to
-           n + 1 entries; the input is modified).
-        2. Forward: left[i] = shortest subarray with sum target inside prefix [0, i] — look up
-           arr[i] - target in val2index (prefix value -> latest index) and keep a running min.
-        3. Backward: right[i] = shortest subarray starting at index >= i — look up arr[i] + target
-           in the map built from the right, again with a running min.
-        4. Answer = min over split points i of left[i] + right[i] (pieces end at <= i and start
-           at >= i, so they do not overlap), or -1.
+        1. Grow the window with r (sum += arr[r]) and shrink from the left while sum > target;
+           values are >= 1, so this keeps the shortest window ending at r with sum <= target.
+        2. When sum == target, best[r] = r - l + 1, and if a target window ends before l
+           (best[l-1] != INT_MAX) the pair costs best[r] + best[l-1]; keep the minimum in ans.
+        3. best[r] = min(best[r], best[r-1]) turns it into "shortest window ending at or before r".
+        4. Return ans, or -1 if no pair was found.
+        5. Also in the file (not called): two_side_forward_backward — prefix sums + hash map with
+           best-left / best-right arrays and a split-point scan (same O(n), but hashing, three
+           passes, and it rewrites arr into prefix sums).
 
-    Verdict: MATCHES BEST — O(n) time and O(n) space like the sliding window; the hash map is only
-        a constant-factor cost (prefix sums are strictly increasing, so a two-pointer could
-        replace it).
+    Verdict: MATCHES BEST — the documented sliding window, O(n) time, O(n) space.
         Verified against an all-pairs brute force on 200000 random arrays and the LeetCode
         examples, under ASan/UBSan.
 */
@@ -88,55 +87,81 @@ class Solution {
     public:
         int minSumOfLengths(vector<int>& arr, int target) {
             int n = arr.size();
-            int temp = arr[0];
-            arr[0] = 0;
-            arr.push_back(0);
-            // vector<int> arr = {3,1,1,1,5,1,2,1};
-            for (int i = 0; i < n; ++i){
-                int curr = arr[i+1];
-                arr[i+1] = arr[i] + temp;
-                temp = curr;
-            }
 
-            // forward direction
-            vector<int> left(n+1, INT_MAX);
-            unordered_map<int, int> val2index;
-            val2index.insert({arr[0], 0});
-            for (int i = 1; i < n; ++i){
-                int j_val = arr[i] - target;
-                if (val2index.count(j_val)){
-                    left[i] = i - val2index[j_val];
+            auto two_side_forward_backward = [&]() -> int {
+                int temp = arr[0];
+                arr[0] = 0;
+                arr.push_back(0);
+                // vector<int> arr = {3,1,1,1,5,1,2,1};
+                for (int i = 0; i < n; ++i){
+                    int curr = arr[i+1];
+                    arr[i+1] = arr[i] + temp;
+                    temp = curr;
                 }
-                left[i] = min(left[i], left[i-1]);
-                val2index[arr[i]] = i;
-                // cout << "i=" << i << " l=" << left[i] << "\n";
-            }
 
-            // backward direction
-            vector<int> right(n+1, INT_MAX);
-            val2index.clear();
-            val2index.insert({arr[n], n});
-            // cout << arr[n] << "\n";
-
-            for (int i = n-1; i>=1; --i){
-                int j_val = arr[i] + target;
-                if (val2index.count(j_val)){
-                    right[i] = val2index[j_val] - i;
+                // forward direction
+                vector<int> left(n+1, INT_MAX);
+                unordered_map<int, int> val2index;
+                val2index.insert({arr[0], 0});
+                for (int i = 1; i < n; ++i){
+                    int j_val = arr[i] - target;
+                    if (val2index.count(j_val)){
+                        left[i] = i - val2index[j_val];
+                    }
+                    left[i] = min(left[i], left[i-1]);
+                    val2index[arr[i]] = i;
+                    // cout << "i=" << i << " l=" << left[i] << "\n";
                 }
-                right[i] = min(right[i], right[i+1]);
-                val2index[arr[i]] = i;
-                // cout << "i=" << i << " r=" << right[i] << "\n";
-            }
 
-            // retrieve result
-            int ans = INT_MAX;
-            for (int i = 1; i < n; ++i){
-                if (left[i] == INT_MAX) continue;
-                if (right[i] == INT_MAX) continue;
-                ans = min(left[i] + right[i], ans);
-                // cout << "l+r=" << left[i] + right[i] << "\n";
-            }
-            return (ans == INT_MAX) ? -1 : ans;
+                // backward direction
+                vector<int> right(n+1, INT_MAX);
+                val2index.clear();
+                val2index.insert({arr[n], n});
+                // cout << arr[n] << "\n";
+
+                for (int i = n-1; i>=1; --i){
+                    int j_val = arr[i] + target;
+                    if (val2index.count(j_val)){
+                        right[i] = val2index[j_val] - i;
+                    }
+                    right[i] = min(right[i], right[i+1]);
+                    val2index[arr[i]] = i;
+                    // cout << "i=" << i << " r=" << right[i] << "\n";
+                }
+
+                // retrieve result
+                int ans = INT_MAX;
+                for (int i = 1; i < n; ++i){
+                    if (left[i] == INT_MAX) continue;
+                    if (right[i] == INT_MAX) continue;
+                    ans = min(left[i] + right[i], ans);
+                    // cout << "l+r=" << left[i] + right[i] << "\n";
+                }
+                return (ans == INT_MAX) ? -1 : ans;
+            };
+
+            auto sliding_window = [&]() -> int {
+                int ans = INT_MAX, l = 0, r = 0;
+                vector<int> best(n, INT_MAX);
+
+                int sum = 0;
+                for (int r = 0; r < n; ++r){
+                    sum += arr[r];
+                    while (sum > target) sum -= arr[l++];
+                    if (sum == target){
+                        best[r] = (r-l+1);
+                        if (l > 0 && best[l-1] != INT_MAX){
+                            ans = min(ans, best[r] + best[l-1]);
+                        }
+                    }
+                    if (r > 0){
+                        best[r] = min(best[r], best[r-1]);
+                    }
+                }
+                return (ans == INT_MAX) ? -1 : ans;
+            };
+
+            return sliding_window();
         }
 };
 
