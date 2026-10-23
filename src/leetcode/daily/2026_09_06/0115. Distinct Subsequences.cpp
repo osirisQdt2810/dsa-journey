@@ -63,22 +63,27 @@ using namespace std;
            states that feed the answer matter, but bottom-up computes all of them).
 */
 /*
-    Your solution: top-down memoised DP on (i, j)
+    Your solution: 2-D bottom-up DP over prefixes, in unsigned arithmetic (bottom_up)
 
     Complexity:
-        Time:  O(m * n) — each (i, j) state is computed once.
-        Space: O(m * n) — the memo table, plus recursion depth up to m.
+        Time:  O(m * n) — one pass over the (m+1) x (n+1) table.
+        Space: O(m * n) — the full memo table of uint.
 
     Approach:
-        1. dp(i, j) = ways to form t[j..] from s[i..]; memo[i][j] = -1 marks "not computed".
-        2. Base cases: j == t.size() -> 1; i == s.size() with j < t.size() -> 0.
-        3. Otherwise skip s[i] (dp(i+1, j)), and if s[i] == t[j] also match it (dp(i+1, j+1)).
-        4. numDistinct returns dp(0, 0).
-        5. Top-down only evaluates states reachable from (0, 0), and every such value is <= the
-           final answer, so int never overflows here (a bottom-up int table would).
+        1. memo[i][j] = ways to form t[0..j) from s[0..i); memo[i][0] = 1 for every i.
+        2. memo[i][j] = memo[i-1][j] (skip s[i-1]) plus memo[i-1][j-1] when s[i-1] == t[j-1].
+        3. Return memo[m][n].
+        4. The table is uint because bottom-up fills EVERY state, and some intermediate counts
+           exceed 2^31 even when the answer fits (s = 1000 'a', t = 10 'a' + 'b': answer 0, but
+           memo[1000][10] = C(1000, 10)). Unsigned arithmetic wraps mod 2^32 (well defined) and the
+           true answer is < 2^31, so memo[m][n] is still exact. `uint` is a POSIX typedef, not
+           standard C++ — `unsigned` is the portable spelling.
+        5. Also in the file (not called): top_down — memoised dp(i, j) on suffixes (no overflow,
+           since every reachable state is <= the answer); optimized_bottom_up — the same recurrence
+           with two rolling rows prev / curr, O(n) space.
 
-    Verdict: SUBOPTIMAL — same O(m * n) time but O(m * n) vs O(n) space; at m, n <= 1000 the
-        table is about 4 MB, well within limits.
+    Verdict: SUBOPTIMAL — same O(m * n) time but O(m * n) vs O(n) space; ~4 MB at m, n <= 1000,
+        well within limits. Switching the return to optimized_bottom_up() makes this MATCHES BEST.
         Verified against a subset-enumeration brute force on 20000 random cases and both
         examples, under ASan/UBSan (no signed overflow, also at m = 1000).
 */
@@ -100,8 +105,46 @@ class Solution {
         int numDistinct(string s, string t) {
             int m = s.size(), n = t.size();
 
-            vector<vector<int>> memo(m+1, vector<int>(n+1, -1));
-            return dp(s, t, 0, 0, memo);
+            auto top_down = [&]() -> int {
+                vector<vector<int>> memo(m+1, vector<int>(n+1, -1));
+                return dp(s, t, 0, 0, memo);
+            };
+
+            auto bottom_up = [&]() -> int {
+                vector<vector<uint>> memo(m+1, vector<uint>(n+1, 0));
+                for (int i = 0; i <= m; ++i){
+                    memo[i][0] = 1;
+                }
+
+                for (int i = 1; i <= m; ++i){
+                    for (int j = 1; j <= n; ++j){
+                        memo[i][j] = memo[i-1][j];
+                        if (s[i-1] == t[j-1]){
+                            memo[i][j] += memo[i-1][j-1];
+                        }
+                    }
+                }
+                return memo[m][n];
+            };
+
+            auto optimized_bottom_up = [&]() -> int {
+                vector<uint> prev(n+1, 0), curr(n+1, 0);
+                prev[0] = 1;
+                for (int i = 1; i <= m; ++i){
+                    curr.assign(n+1, 0);
+                    curr[0] = 1;
+                    for (int j = 1; j <= n; ++j){
+                        curr[j] = prev[j];
+                        if (s[i-1] == t[j-1]){
+                            curr[j] += prev[j-1];
+                        }
+                    }
+                    swap(prev, curr);
+                }
+                return prev[n];
+            };
+
+            return bottom_up();
         }
 };
 
