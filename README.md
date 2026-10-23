@@ -6,8 +6,8 @@
   <img alt="C++17" src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white">
   <img alt="LeetCode" src="https://img.shields.io/badge/LeetCode-daily-FFA116?logo=leetcode&logoColor=white">
   <img alt="Codeforces" src="https://img.shields.io/badge/Codeforces-contests-1F8ACB?logo=codeforces&logoColor=white">
-  <img alt="Solutions" src="https://img.shields.io/badge/solutions-236%2B-2ea44f">
-  <img alt="Daily streak" src="https://img.shields.io/badge/daily%20folders-149-blueviolet">
+  <img alt="Solutions" src="https://img.shields.io/badge/solutions-341%2B-2ea44f">
+  <img alt="Daily streak" src="https://img.shields.io/badge/daily%20folders-229-blueviolet">
 </p>
 
 ---
@@ -28,11 +28,11 @@ Everything is committed with a consistent convention (see [Conventions](#-conven
 
 | Metric | Count |
 |---|--:|
-| Total C++ solutions | **236+** |
-| Daily LeetCode folders | **149** (since Nov 2024) |
+| Total C++ solutions | **341+** |
+| Daily LeetCode folders | **229** (since Nov 2024) |
 | LeetCode weekly contests | **8** |
 | Codeforces contests | **3** |
-| Classic problem topics | **13** |
+| Classic problem topics | **17** |
 | Reusable algorithm headers | **28** |
 
 ---
@@ -93,7 +93,7 @@ The part I'm proudest of. Instead of copy-pasting boilerplate every contest, rec
 ### Classic problem sets (`src/leetcode/problems/`)
 Grouped by the technique they teach:
 
-`data_structure_design` · `dsu` · `fenwick_tree` · `lca` · `lfu` · `lru` · `segtree` · `shortest_path` · `sqrt_decomposition` · `sweep_line` · `trie` · `two_pointers`
+`ad_hoc` · `data_structure_design` · `dp` · `dsu` · `fenwick_tree` · `lca` · `lfu` · `linked_list` · `lru` · `mst` · `segtree` · `shortest_path` · `sqrt_decomposition` · `sweep_line` · `traversal` · `trie` · `two_pointers`
 
 ---
 
@@ -118,6 +118,12 @@ git submodule update --init --recursive
 
 ### `scripts/find_unsolved_leetcode.py`
 Queries LeetCode (via its GraphQL API) to surface **unsolved** problems filtered by topic/keyword — so I can target weak areas instead of picking randomly.
+
+### `scripts/pull_leetcode_statement.py`
+Pulls a problem's statement **verbatim** from LeetCode (id → slug → GraphQL) into its solution file as a comment block, so every solution carries the exact problem it solves.
+
+### `scripts/update_readme_stats.py`
+Recomputes the numbers and lists in this README (badges, *At a glance*, classic problem sets) from what git actually tracks. Run on every PR, so the README never drifts behind the archive (`--check` only reports).
 
 ---
 
