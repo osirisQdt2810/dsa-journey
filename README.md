@@ -6,7 +6,7 @@
   <img alt="C++17" src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white">
   <img alt="LeetCode" src="https://img.shields.io/badge/LeetCode-daily-FFA116?logo=leetcode&logoColor=white">
   <img alt="Codeforces" src="https://img.shields.io/badge/Codeforces-contests-1F8ACB?logo=codeforces&logoColor=white">
-  <img alt="Solutions" src="https://img.shields.io/badge/solutions-344%2B-2ea44f">
+  <img alt="Solutions" src="https://img.shields.io/badge/solutions-346%2B-2ea44f">
   <img alt="Daily streak" src="https://img.shields.io/badge/daily%20folders-232-blueviolet">
 </p>
 
@@ -28,7 +28,7 @@ Everything is committed with a consistent convention (see [Conventions](#-conven
 
 | Metric | Count |
 |---|--:|
-| Total C++ solutions | **344+** |
+| Total C++ solutions | **346+** |
 | Daily LeetCode folders | **232** (since Nov 2024) |
 | LeetCode weekly contests | **8** |
 | Codeforces contests | **3** |
