@@ -58,6 +58,8 @@ This repo is a personal DSA study journal (main repo `dsa-journey` + two git sub
      conflicting PR is left open for the user). Submodule PRs get **no** label — those repos have no
      CI, so they wait for a manual merge. After the main-repo merges land, rebase every other local
      `phuc-nguyen/*` branch onto the advanced base and re-push it, so no branch keeps stale history.
+     **README stats ride inside each main-repo PR** (last commit, `scripts/update_readme_stats.py`) —
+     never a separate README PR; main-repo PRs are therefore opened and merged one at a time.
    - No mode word → local commits only, nothing is pushed anywhere.
    Only ever `--force-with-lease`, only on a branch just rebased, and never on a branch whose
    upstream is the base (e.g. `cheatsheet` tracks `origin/master`). Never merge a PR yourself.

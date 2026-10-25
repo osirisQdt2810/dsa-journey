@@ -54,7 +54,7 @@ reword the pulled text by hand.
   - `git status --porcelain src/leetcode/problems/` (Target D)
   - `git -C courses/dsa-mentorship status --porcelain`
   - `git -C courses/fse13-faang status --porcelain`
-- **Never** run `git add -A`. Stage only the exact files of the unit being committed. Leave everything out of scope untouched (other submodules, `build/`, slides, READMEs, etc.) — the one exception is the main README's stats, refreshed only by `pr` step 5.
+- **Never** run `git add -A`. Stage only the exact files of the unit being committed. Leave everything out of scope untouched (other submodules, `build/`, slides, READMEs, etc.) — the one exception is the main README's stats, refreshed only by `pr` step 5 (inside each main-repo PR).
 
 ## Branch handling — do this BEFORE committing each unit (critical)
 
@@ -303,7 +303,7 @@ commits are done (local commits always happen, whatever the mode).
 |---|---|
 | *(none)* | **Local commits only — the default.** Nothing is pushed anywhere. |
 | `push` | **Get the branches onto the remote, nothing more.** Rebase + push **every branch that received a commit in this run**, in all three repos. No PR is opened. |
-| `pr` | **Get the work merged.** Rebase + push, then open/refresh a PR, wait for the auto-merge bot, then rebase-sweep the remaining local topic branches onto the updated base and re-push them, and finally refresh the README stats through their own PR (step 5). Its branch set is **wider** than `push` — see below. |
+| `pr` | **Get the work merged.** Rebase + push, then open/refresh a PR, wait for the auto-merge bot, then rebase-sweep the remaining local topic branches onto the updated base and re-push them. Every main-repo PR also carries the README stats refresh as its last commit (step 5). Its branch set is **wider** than `push` — see below. |
 
 - The mode is a **bare word** (`push` / `pr`), matched case-insensitively. Strip it from
   `$ARGUMENTS` first; the remaining tokens are scope filters exactly as before.
@@ -374,7 +374,8 @@ the submodules have no CI at all.
 
 4. Main repo — ensure the opt-in label exists (idempotent):
    `gh label create auto-merge --color 0E8A16 --description "CI merges this PR when lint passes and there are no conflicts" 2>/dev/null || true`
-5. Main repo, per branch: query `gh pr list --head <branch> --state open`. If it is empty →
+5. Main repo, per branch — **one branch at a time, after its README refresh (step 5)**: query
+   `gh pr list --head <branch> --state open`. If it is empty →
    `gh pr create --base master --head <branch> --fill --label auto-merge`. **Query this for every
    branch in the set** — a branch that pushed clean, and a branch that was already up-to-date, are
    treated identically here. Otherwise the push in step 3 already updated the open PR — just ensure
@@ -416,44 +417,45 @@ this sweep fixes.
     (i.e. the user merged an earlier submodule PR themselves). Submodule PRs opened in this run never
     merge on their own, so normally the submodule sweep is a no-op.
 
-### Step 5 — refresh the README (`pr` mode, main repo only, every run)
+### Step 5 — the README refresh rides inside each main-repo PR (`pr` mode)
 
 The README's badges, *At a glance* table and classic-problem list are derived from the archive, so
-they drift every time a PR lands. Refresh them **after** the merges, from the merged state, on a
-dedicated branch — never inside a topic PR (two topic PRs editing the same README lines would
-conflict with each other and block auto-merge).
+every PR that adds solutions makes them stale. **Each main-repo PR carries its own README refresh as
+its last commit** — never a separate README PR. This step therefore runs **inside steps 2–3**, per
+main-repo branch, before that branch's PR is opened or updated.
 
-14. On the up-to-date `master` (after step 4, or after step 1's fast-forward when nothing merged),
-    run `python3 scripts/update_readme_stats.py --check --ref master`. Counts come from what
-    `master` tracks, so untracked placeholders and still-open PRs never inflate them.
-    - `README.md is up to date` and no `warning:` lines → nothing to do; say so in the summary.
-15. Otherwise check out the generated-only branch from the fresh base:
-    `git checkout -B phuc-nguyen/readme-stats master` (this branch only ever carries the README
-    refresh, so resetting it is safe), then run `python3 scripts/update_readme_stats.py` (no
-    `--check`).
-16. The script also prints `warning:` lines for a `topics/**/*.hpp` header missing from the topics
-    table or a `scripts/*.py` missing from the Tooling section. Fix each one **in the same commit**:
-    add the header to its area row of the topics table / add a `### scripts/<name>` entry with a
-    one-sentence description to Tooling, in the README's existing style. Re-run with `--check`
-    until it reports up to date with no warnings.
-17. `pre-commit run --files README.md`, then commit **only** `README.md`:
-    `[docs] refresh README stats (<N> solutions, <M> daily folders)`.
-18. Push (`-u` first time, else `--force-with-lease` — the `-B` reset rewrote it), open the PR with
-    the `auto-merge` label exactly as in item 5 (Step 2), and poll it exactly as in item 7 (Step 3).
-    When it merges, fast-forward `master` and bring every `phuc-nguyen/*` branch level again as in
-    item 11 (Step 4) (they are
-    all exactly one commit behind, so this is a plain fast-forward + plain push).
-    If it does not merge, report it as published but not merged — never merge it yourself.
+14. **One main-repo PR at a time.** Two open PRs that both rewrite the same README lines would
+    conflict with each other and block auto-merge. So for the main repo, take the `pr` branch set one
+    branch at a time: refresh (items 15–18) → push → open / update its PR (item 5) → wait for it
+    (item 7) → fast-forward `master` → only then move to the next branch, rebasing it onto the new
+    `master` first. Submodule PRs are unaffected (their README is never touched).
+15. **Drop a stale refresh first.** If the branch tip is an earlier `[docs] refresh README stats`
+    commit that is not in `master` (left by a run whose PR did not merge), drop it before rebasing —
+    `git reset --keep HEAD~1` on that branch — it is regenerated below from the current state.
+16. After the branch is rebased onto the up-to-date `master`, run
+    `python3 scripts/update_readme_stats.py --check --ref HEAD` on the branch. `--ref HEAD` counts
+    what `master` will track **after this PR merges** (master + this branch); untracked placeholders
+    never count.
+    - `README.md is up to date` and no `warning:` lines → no README commit; the PR carries only its
+      solutions. Say so in the summary.
+17. Otherwise run `python3 scripts/update_readme_stats.py` (no `--check`). For every `warning:` line
+    (a `topics/**/*.hpp` header missing from the topics table, a `scripts/*.py` missing from
+    Tooling) add the entry in the README's existing style. Re-run `--check --ref HEAD` until it is up
+    to date with no warnings.
+18. `pre-commit run --files README.md`, then commit **only** `README.md` on the same branch, as the
+    last commit of the PR: `[docs] refresh README stats (<N> solutions, <M> daily folders)`. Then push
+    (`--force-with-lease` after a rebase) and continue with item 5 for this branch.
 
-This is the **only** place the README is edited by this command; the unit commits above never touch
-it.
+The README is edited **only** here; unit commits never touch it, and `push` mode never refreshes it
+(no PR is opened there). There is no dedicated README branch any more —
+`phuc-nguyen/readme-stats` is retired.
 
 ## After committing
 For each repo you committed in, print its `git log --oneline` for the new commits and the branch it's on, then a combined table of `repo | branch | unit | number | technique`, plus any flagged/skipped units and any branches you created (with their base).
 
 Then, when a mode was passed:
 - **`push` and `pr`** — a publish table `repo | branch | pushed? | how (new upstream / force-with-lease)`, and for anything not pushed, the reason (rebase conflict, diverged base, rejected lease).
-- **`pr` only** — add `PR URL | merged?` per branch, marking submodule PRs as *manual merge, no CI*; then a sweep table `repo | branch | rebased or ff | re-pushed? | conflict?`, or an explicit line saying the sweep was skipped because the base never moved; then the README refresh result (step 5): the changed numbers old → new and the PR URL / merged?, or "README already up to date".
+- **`pr` only** — add `PR URL | merged?` per branch, marking submodule PRs as *manual merge, no CI*; then a sweep table `repo | branch | rebased or ff | re-pushed? | conflict?`, or an explicit line saying the sweep was skipped because the base never moved; then, per main-repo PR, the README refresh it carried (step 5): the changed numbers old → new, or "README already up to date".
 - **No mode** — say plainly that nothing was pushed and name the mode word (`push` / `pr`) that would publish it.
 
 **Stranded-work check (every run, every mode).** Before finishing, list each local `phuc-nguyen/*`
