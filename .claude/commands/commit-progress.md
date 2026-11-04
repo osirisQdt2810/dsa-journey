@@ -1,6 +1,6 @@
 ---
-description: Commit study progress — daily LeetCode (main repo) + course lessons/homework/revision (submodules), one commit per unit, on the correct per-repo branch; the `push` mode also rebases+pushes every touched branch, and `pr` additionally opens PRs, waits for auto-merge, then rebase-sweeps the other local branches; `pull-lc <ID>` instead pulls a LeetCode statement verbatim into its solution file (no commit)
-argument-hint: "[pull-lc <ID>... — only pull LeetCode statements into their files, nothing else] | [optional mode: push | pr — push rebases+pushes every touched branch, pr also opens PRs and waits for auto-merge then rebase-sweeps the rest; omit for local commits only] [optional: paths/names to restrict scope, e.g. 2026_07_06 | lesson-06-graph | 01-two-pointers-sliding-window; else all pending]"
+description: Commit study progress — daily LeetCode (main repo) + course lessons/homework/revision (submodules), one commit per unit, on the correct per-repo branch; the `push` mode also rebases+pushes every touched branch, and `pr` additionally opens PRs, waits for auto-merge, then rebase-sweeps the other local branches; `pull-lc <ID>` instead pulls a LeetCode statement verbatim into its solution file, and `test-lc <ID>` writes an example-based test main() in the file's language (both no commit)
+argument-hint: "[pull-lc <ID>... — only pull LeetCode statements into their files, nothing else] | [test-lc <ID>... — only write an example-based test main() into the solution file] | [optional mode: push | pr — push rebases+pushes every touched branch, pr also opens PRs and waits for auto-merge then rebase-sweeps the rest; omit for local commits only] [optional: paths/names to restrict scope, e.g. 2026_07_06 | lesson-06-graph | 01-two-pointers-sliding-window; else all pending]"
 allowed-tools: Bash(git:*), Bash(ls:*), Bash(gh:*), Bash(pre-commit:*), Bash(g++:*), Bash(python3:*), Read, Edit, WebFetch
 ---
 
@@ -37,6 +37,58 @@ reword the pulled text by hand.
   memory in this subcommand.
 - Report per id: the file touched and how (filled placeholder / replaced / inserted). The file stays
   uncommitted; it is committed later with its solution by a normal `/commit-progress` run.
+
+## Subcommand — `test-lc <ID>...` (example-based test harness, no commit)
+
+When the **first** token of `$ARGUMENTS` is `test-lc`, run **only** this and skip everything else in
+this file (same isolation as `pull-lc`: no discovery, no branch switching, no lint run, no commit, no
+push). Tokens are LeetCode ids, each optionally followed by a file path that pins the target file.
+
+Goal: turn the problem's **official examples** into a runnable test entry point in the solution file,
+so the user only has to compile/run it and read PASS/FAIL. LeetCode prints examples in a
+Python-like literal syntax (`[[1,2],[3,4]]`, `"abc"`, `true`, `null`); this subcommand translates them
+into the **file's own language**.
+
+1. **Target file** — same resolution as `pull-lc` (single `<ID>. *` under `src/leetcode/` or
+   `courses/`). If several match, prefer the file the user has open in the IDE when its content is that
+   problem; otherwise ask.
+2. **Examples, verbatim** — take them from the file's pulled `LC <ID> - …` block if present, else from
+   `python3 scripts/pull_leetcode_statement.py <ID> --dry-run` (no file edit). Use **every** example,
+   with inputs and expected outputs exactly as printed. If neither source is available (fetch failed,
+   premium), stop and report — never invent examples or expected outputs.
+3. **Signature from the code** — read the file's `Solution` (or design class) to get the method name,
+   parameter types (including `&` / mutability) and return type. The harness must call the user's
+   real method; never rewrite or "fix" the solution itself.
+4. **Write the harness** in the file's language, between the markers `test-lc:begin` / `test-lc:end`
+   (as line comments: `// test-lc:begin` in C++/Java/Go/JS, `# test-lc:begin` in Python). A re-run
+   replaces the marked region in place (idempotent); helpers outside the markers are not touched.
+   - **C++**: the region is the body of `main()` (keep `Solution sol;`-style setup only inside the
+     region; leave the file's `auto init = …` lambda alone). Declare each input as a named local
+     (`vector<vector<int>> positions = {{1,2},{2,3}};`) so `T&` parameters bind. Add any standard
+     header the harness needs as a specific `#include` (never `<bits/stdc++.h>`).
+   - **Python**: an `if __name__ == "__main__":` block. **Java**: `public static void main`. Other
+     languages: their idiomatic entry point.
+   - One fresh `Solution` per example (no state leaking between examples).
+   - Print one line per example: `Example <i>: PASS` or `Example <i>: FAIL  got=<…>  expected=<…>`,
+     with a small generic printer for vectors / nested vectors / strings, and a final
+     `<passed>/<total> passed` line.
+   - **Comparisons:** exact by default; floating-point outputs within `1e-5`. When the statement says
+     the answer may be returned "in any order", sort both sides before comparing. When it accepts
+     **any** valid answer (several correct outputs), print `got` with `CHECK MANUALLY` instead of a
+     verdict.
+   - **Special input types:** `ListNode` / `TreeNode` → emit small `build_list` / `build_tree`
+     (level-order with `null`) and matching serializers *inside the marked region's file section*,
+     only when the signature needs them. **Design problems** (`["MyCalendar","book",…]`,
+     `[[],[10,20],…]`) → replay the operation list on one object and compare each returned value,
+     treating `null` as "no return value".
+5. **Check it compiles** — for C++ run `g++ -std=c++20 -fsyntax-only <file>` (Python:
+   `python3 -m py_compile`). If the error is in the harness, fix the harness. If it is in the user's
+   solution (unfinished code), leave the solution untouched and report the error.
+   Do **not** run the tests — the user runs them.
+6. **Report** per id: the file, how many examples were wired up, any `CHECK MANUALLY` examples, and
+   the one-line command to run it, e.g.
+   `g++ -std=c++20 -O2 "<file>" -o /tmp/a && /tmp/a`. The harness stays uncommitted and is committed
+   later with the solution by a normal `/commit-progress` run.
 
 ## Targets
 
