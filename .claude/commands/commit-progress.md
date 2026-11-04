@@ -226,6 +226,21 @@ Python).
 - **Examples** — the source's worked examples (input / output / explanation), **fetched from the
   source**. Keep 2–3 representative ones — enough to pin down the exact I/O shape and at least one
   edge case; do not paste all of them if the source lists many.
+- **Attempt metadata (LeetCode units: Targets A and D)** — three lines right after the title line +
+  URL, read by `scripts/cultivation_feed.py` for the Omnia *Cultivation* plugin's DSA level:
+  ```
+      @status: self        // self | hint | editorial | copied
+      @time: 35            // minutes until accepted (or until you gave up)
+      @wa: 2               // wrong submissions before AC
+  ```
+  - `self` = solved alone; `hint` = needed a hint; `editorial` = read the editorial, then implemented
+    it yourself; `copied` = the code is not yours (it opens a "debt" until re-solved alone ≥ 7 days later).
+  - These are facts only the user knows: when a **new** solution file has no `@status` yet, **ask**
+    for all three before staging — one compact question listing every such unit of the run (e.g.
+    `3505: status/time/wa?`), not one question per file. Never infer or invent them from the code, the
+    git timestamps or the commit history. If the user skips a unit, leave the lines out (the feed
+    then counts it as `unknown`, a weaker signal) and say so in the report.
+  - Existing lines are kept as written; a re-solve is a new file and gets its own metadata.
 
 **Block 2 — `Best solution`** — the reference-optimal algorithm, independent of the user's code:
 - `Best solution: <name>` — the optimal (or near-optimal) algorithm for the problem.
@@ -515,5 +530,19 @@ branch per repo with `git -C <repo> rev-list --count <base>..<branch>` > 0 **and
 them explicitly as *unmerged work with no PR*, with the commit count. `ahead > 0` is never "fine" —
 it means committed study work that is not in the base yet. Never report such a branch as merely
 "already rebased onto the latest base" and leave it at that.
+
+**Cultivation feed (last step — every run, every mode; never in `pull-lc` / `test-lc`).** After all
+commits (and any push / PR / sweep) are done, refresh the DSA feed the Omnia *Cultivation* plugin in
+Anki reads:
+```
+python3 scripts/cultivation_feed.py
+```
+It re-reads the whole of `src/leetcode/` in the main repo (committed and uncommitted files alike),
+so it runs once per command, not per unit, and is harmless when nothing was committed. It writes
+`~/.omnia/cultivation/dsa_feed.json` (or `$OMNIA_CULTIVATION_FEED`); the Cultivation window picks the
+change up on its own. Put its one-line summary (`cultivation feed: N attempts …`) in the report.
+**A failure here never fails the command:** report the error line and finish normally. Its warnings
+(skipped files whose LeetCode id could not be resolved, an unreachable ratings list) go in the report
+as-is.
 
 Arguments: $ARGUMENTS
