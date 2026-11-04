@@ -158,17 +158,27 @@ def git(repo, *args):
 
 
 def first_commit_dates(repo):
-    """Map repo-relative path -> date of the commit that added it (one git call for all)."""
-    out = git(
-        repo, "log", "--diff-filter=A", "--name-only", "--format=@@%aI", "--reverse",
-        "--", "src/leetcode",
-    )
+    """Map repo-relative path -> date the file was first created, following renames.
+
+    One pass over the whole history, oldest commit first. A rename carries the old path's
+    creation date to the new path: files were moved more than once (`leetcode/contest/` ->
+    `contests/`, solutions into `problems/<topic>/`), and dating a moved file by its move would
+    make months-old solutions look like today's work.
+    """
+    out = git(repo, "log", "--reverse", "-M", "--name-status", "--format=@@%aI")
     dates, current = {}, None
     for line in out.splitlines():
         if line.startswith("@@"):
             current = line[2:12]
-        elif line and current:
-            dates.setdefault(line, current)
+            continue
+        parts = line.split("\t")
+        if not current or len(parts) < 2:
+            continue
+        status = parts[0][:1]
+        if status == "A":
+            dates.setdefault(parts[1], current)
+        elif status in ("R", "C") and len(parts) >= 3:
+            dates.setdefault(parts[2], dates.get(parts[1], current))
     return dates
 
 
