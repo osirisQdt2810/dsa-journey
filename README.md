@@ -116,6 +116,9 @@ git submodule update --init --recursive
 
 ## 🛠️ Tooling
 
+### `scripts/cultivation_feed.py`
+Exports every LeetCode attempt in the archive (LC id, date, source, topic, `@status` / `@time` / `@wa` metadata) as a JSON feed for the Omnia *cultivation* Anki plugin, plus cached contest ratings and difficulties. Runs as the last step of `/commit-progress`, so the feed is fresh after every study commit.
+
 ### `scripts/find_unsolved_leetcode.py`
 Queries LeetCode (via its GraphQL API) to surface **unsolved** problems filtered by topic/keyword — so I can target weak areas instead of picking randomly.
 
