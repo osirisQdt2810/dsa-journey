@@ -62,7 +62,8 @@ dsa-journey/
 │   └── fse13-faang/
 │
 └── scripts/                    # Tooling (see below)
-    └── find_unsolved_leetcode.py
+    ├── leetcode.py
+    └── update_readme_stats.py
 ```
 
 ---
@@ -116,14 +117,17 @@ git submodule update --init --recursive
 
 ## 🛠️ Tooling
 
-### `scripts/cultivation_feed.py`
-Exports every LeetCode attempt in the archive (LC id, date, source, topic, `@status` / `@time` / `@wa` metadata) as a JSON feed for the Omnia *cultivation* Anki plugin, plus cached contest ratings and difficulties. Runs as the last step of `/commit-progress`, so the feed is fresh after every study commit.
+### `scripts/leetcode.py`
+Every LeetCode task in one stdlib-only script, as subcommands:
 
-### `scripts/find_unsolved_leetcode.py`
-Queries LeetCode (via its GraphQL API) to surface **unsolved** problems filtered by topic/keyword — so I can target weak areas instead of picking randomly.
-
-### `scripts/pull_leetcode_statement.py`
-Pulls a problem's statement **verbatim** from LeetCode (id → slug → GraphQL) into its solution file as a comment block, so every solution carries the exact problem it solves.
+| Subcommand | What it does |
+|---|---|
+| `pull <ID>` | Pulls a problem's statement **verbatim** (id → slug → GraphQL) into its solution file as a comment block, so every solution carries the exact problem it solves. |
+| `attempt <file>…` | Measures an attempt instead of guessing it: `@created` from the file's birth time, `@time` up to the **first Accepted submission after it** (an older solve of the same problem is ignored), `@wa` = rejected submissions in that window. `--write` records `@status/@time/@wa/@created` in the file. |
+| `daily [DATE…]` | Scaffolds `src/leetcode/daily/YYYY_MM_DD/` for each date's daily challenge: repo template, LeetCode's C++ signature and the pulled statement. |
+| `unsolved --topics …` | Surfaces **unsolved** problems by topic/keyword (medium/hard), so I can target weak areas instead of picking randomly. Holds the canonical topic vocabulary (`TOPIC_ALIASES`). |
+| `feed` | Exports every attempt in the archive (LC id, date, source, topic, metadata) as the JSON feed of the Omnia *cultivation* Anki plugin, plus cached contest ratings and difficulties. Last step of `/commit-progress`. |
+| `login` | Refreshes `scripts/.session` (git-ignored), which `attempt` and `unsolved` use to read my account. |
 
 ### `scripts/update_readme_stats.py`
 Recomputes the numbers and lists in this README (badges, *At a glance*, classic problem sets) from what git actually tracks. Run on every PR, so the README never drifts behind the archive (`--check` only reports).
