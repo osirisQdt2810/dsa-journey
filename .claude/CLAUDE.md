@@ -19,7 +19,7 @@ This repo is a personal DSA study journal (main repo `dsa-journey` + two git sub
      (e.g. `review-graph-sp-mst` covers `shortest_path/` + MST). Folder does not map 1:1 to a
      branch — prefer an existing `phuc-nguyen/review-*` that fits the topic's algorithm family; if
      none exists, create `phuc-nguyen/review-<series>` named from the canonical topic vocabulary in
-     `scripts/find_unsolved_leetcode.py` (`TOPIC_ALIASES`). Ask only when it's genuinely ambiguous.
+     `scripts/leetcode.py` (`TOPIC_ALIASES`). Ask only when it's genuinely ambiguous.
 
 2. **Only "overall" / non-solution files may be committed directly on the base branch**: this
    `CLAUDE.md` and other Claude config, `README`, tooling/scripts. Everything that is DSA solution
