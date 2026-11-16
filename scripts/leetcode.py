@@ -21,9 +21,9 @@ feed      Export every LeetCode attempt in the archive as the JSON feed of the O
           "cultivation" Anki plugin (run as the last step of /commit-progress).
 login     Refresh scripts/.session (LEETCODE_SESSION) through a real browser (needs playwright).
 
-Subcommands that read your account (attempt, unsolved) need scripts/.session. Get it with
-`login`, or paste the LEETCODE_SESSION cookie value (DevTools -> Application -> Cookies) into
-scripts/.session. The file is git-ignored.
+Subcommands that read your account (attempt, unsolved) need scripts/.session (git-ignored).
+Step-by-step instructions for copying the LEETCODE_SESSION cookie live at the top of that file;
+`login` fetches it through a browser instead, `login --check` tells whether it is still valid.
 """
 
 import argparse
@@ -94,10 +94,39 @@ def graphql(query, variables=None, session=None):
     return out["data"]
 
 
+SESSION_HELP = """\
+# LeetCode session cookie for scripts/leetcode.py (`attempt`, `unsolved`).
+# Lines starting with '#' are ignored; the first other non-empty line is the cookie value.
+# This file is git-ignored: never commit or share it (it logs in as you).
+#
+# How to get LEETCODE_SESSION:
+#   1. Log in at https://leetcode.com in your browser.
+#   2. Open DevTools: Chrome/Edge Cmd+Opt+I (Ctrl+Shift+I), Firefox Cmd+Opt+I,
+#      Safari: Settings -> Advanced -> "Show features for web developers", then Cmd+Opt+I.
+#   3. Chrome/Edge: Application tab -> Storage -> Cookies -> https://leetcode.com
+#      Firefox: Storage tab -> Cookies -> https://leetcode.com
+#      Safari:  Storage tab -> Cookies -> leetcode.com
+#   4. Find the row named LEETCODE_SESSION and copy its Value (a long string starting
+#      with "eyJ"; double-click the Value cell, Cmd+A, Cmd+C).
+#   5. Paste it on the line below (replace the old value), save.
+#   6. Check: python3 scripts/leetcode.py login --check   -> "signed in as <you>"
+# It expires after a while (or when you log out of leetcode.com); repeat when `attempt`
+# warns "scripts/.session is expired". `python3 scripts/leetcode.py login` does steps
+# 1-5 in a browser window instead (needs: pip install playwright && playwright install chromium).
+"""
+
+
 def read_session():
     if SESSION_FILE.exists():
-        return SESSION_FILE.read_text().strip() or None
+        for line in SESSION_FILE.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line
     return None
+
+
+def write_session(session):
+    SESSION_FILE.write_text(SESSION_HELP + session.strip() + "\n")
 
 
 def signed_in_user(session):
@@ -138,7 +167,7 @@ def login_via_browser():
     session = cookies.get("LEETCODE_SESSION")
     if not session:
         sys.exit("login failed: LEETCODE_SESSION cookie not found")
-    SESSION_FILE.write_text(session)
+    write_session(session)
     print(f"session saved to {rel(SESSION_FILE)}")
     return session
 
@@ -1228,7 +1257,18 @@ def cmd_feed(args):
 # =============================================================================================
 
 
-def cmd_login(_args):
+def cmd_login(args):
+    if args.check:
+        session = read_session()
+        user = signed_in_user(session)
+        if user:
+            print(f"signed in as {user}")
+            return
+        print("scripts/.session is " + ("expired" if session else "missing")
+              + " - see the instructions at the top of scripts/.session")
+        if not SESSION_FILE.exists() or session is None:
+            write_session("")  # leave the instructions in place for the user
+        sys.exit(1)
     session = login_via_browser()
     print(f"signed in as {signed_in_user(session) or '?'}")
 
@@ -1273,6 +1313,7 @@ def main():
     p.set_defaults(func=cmd_feed)
 
     p = sub.add_parser("login", help="refresh scripts/.session through a browser")
+    p.add_argument("--check", action="store_true", help="only report whether the session is valid")
     p.set_defaults(func=cmd_login)
 
     args = ap.parse_args()
