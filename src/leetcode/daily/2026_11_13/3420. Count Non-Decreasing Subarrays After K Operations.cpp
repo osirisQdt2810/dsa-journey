@@ -77,6 +77,7 @@ using namespace std;
 */
 /*
     Your solution: reversed two pointers with a monotonic deque of (prefix max, count) blocks
+        (wrapped in the lambda `sliding_window`, which the method calls and returns)
 
     Complexity:
         Time:  O(n) — amortized: each block is pushed once and popped at most once; r only decreases.
@@ -100,44 +101,49 @@ using namespace std;
 class Solution {
     public:
         long long countNonDecreasingSubarrays(vector<int>& nums, int k) {
-            using max_v = int;
-            using cnt_v = int;
-            using ii = pair<max_v, cnt_v>;
-            deque<ii> dq;
 
-            int n = nums.size();
-            long long need = 0;
-            int r = n-1;
-            long long ans = 0;
-            for (int l = n-1; l >= 0; --l){
-                // update queue hiện tại từ (l+1->r) về (l->r)
-                // needs(l,i) = needs(l+1,i) + max(a[l] - max_v(l+1...i), 0)
-                // cho nên chỉ cần update các điểm có a[l] > max_v(l+1...i):
-                //      ví dụ:       [3, 3, 4, 4, 6]
-                //      -> a[l] = 5: [5, 5, 5, 5, 6] -> tính cnt để bớt việc update
-                int cnt = 1;
-                while (!dq.empty() && nums[l] > dq.front().first){
-                    // // need[i] -> need[i] + a[l] - v[i]
-                    // need += nums[l] - dq.front().first;
-                    // ++cnt;
+            auto sliding_window = [&]() -> long long {
+                using max_v = int;
+                using cnt_v = int;
+                using ii = pair<max_v, cnt_v>;
+                deque<ii> dq;
 
-                    // bởi vì bây giờ đã lưu dạng cnt => phải dùng tích
-                    need += 1LL * (nums[l] - dq.front().first) * dq.front().second;
-                    cnt += dq.front().second;
-                    dq.pop_front();
+                int n = nums.size();
+                long long need = 0;
+                int r = n-1;
+                long long ans = 0;
+                for (int l = n-1; l >= 0; --l){
+                    // update queue hiện tại từ (l+1->r) về (l->r)
+                    // needs(l,i) = needs(l+1,i) + max(a[l] - max_v(l+1...i), 0)
+                    // cho nên chỉ cần update các điểm có a[l] > max_v(l+1...i):
+                    //      ví dụ:       [3, 3, 4, 4, 6]
+                    //      -> a[l] = 5: [5, 5, 5, 5, 6] -> tính cnt để bớt việc update
+                    int cnt = 1;
+                    while (!dq.empty() && nums[l] > dq.front().first){
+                        // // need[i] -> need[i] + a[l] - v[i]
+                        // need += nums[l] - dq.front().first;
+                        // ++cnt;
+
+                        // bởi vì bây giờ đã lưu dạng cnt => phải dùng tích
+                        need += 1LL * (nums[l] - dq.front().first) * dq.front().second;
+                        cnt += dq.front().second;
+                        dq.pop_front();
+                    }
+                    dq.push_front({nums[l], cnt});
+
+                    // shrink r => tự ngầm hiểu r và cnt
+                    while (need > k){
+                        need -= dq.back().first - nums[r];
+                        if (--dq.back().second == 0) dq.pop_back();
+                        --r;
+                    }
+
+                    ans += 1LL * (r - l + 1);
                 }
-                dq.push_front({nums[l], cnt});
+                return ans;
+            };
 
-                // shrink r => tự ngầm hiểu r và cnt
-                while (need > k){
-                    need -= dq.back().first - nums[r];
-                    if (--dq.back().second == 0) dq.pop_back();
-                    --r;
-                }
-
-                ans += 1LL * (r - l + 1);
-            }
-            return ans;
+            return sliding_window();
         }
 };
 
